@@ -137,6 +137,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Cria uma nova planilha
         const ws = XLSX.utils.aoa_to_sheet(dadosParaExportar);
+
+        // --- Adicionando formatação ---
+
+        // Definir larguras de coluna
+        ws['!cols'] = [
+            { wch: 20 }, // Largura para a coluna "Categoria"
+            { wch: 15 }  // Largura para a coluna "Total (R$)"
+        ];
+
+        // Estilizar cabeçalhos (primeira linha)
+        // A1 e B1
+        if (ws['A1']) {
+            ws['A1'].s = { font: { bold: true } };
+        }
+        if (ws['B1']) {
+            ws['B1'].s = { font: { bold: true } };
+        }
+
+        // Estilizar "Total Geral" (última linha)
+        const lastRowIndex = dadosParaExportar.length;
+        const totalGeralCellA = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 0 }); // Célula da categoria "Total Geral"
+        const totalGeralCellB = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 1 }); // Célula do valor "Total Geral"
+
+        if (ws[totalGeralCellA]) {
+            ws[totalGeralCellA].s = { font: { bold: true } };
+        }
+        if (ws[totalGeralCellB]) {
+            ws[totalGeralCellB].s = { font: { bold: true } };
+        }
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Resumo de Gastos");
 
