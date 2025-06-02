@@ -1,0 +1,196 @@
+/* Estilos Gerais */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #F8F8F8; /* Branco quase cinza para o fundo */
+    color: #333; /* Texto escuro padrão */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Garante que o body ocupe a altura total da tela */
+}
+
+header {
+    background-color: #001F3F; /* Azul Marinho Escuro */
+    color: white;
+    padding: 20px 0;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+main {
+    flex-grow: 1; /* Permite que o conteúdo principal ocupe o espaço disponível */
+    padding: 20px;
+    max-width: 800px;
+    margin: 20px auto; /* Centraliza o conteúdo */
+    background-color: #FFFFFF; /* Fundo branco para as seções */
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+footer {
+    background-color: #001F3F; /* Azul Marinho Escuro */
+    color: white;
+    text-align: center;
+    padding: 15px 0;
+    margin-top: auto; /* Empurra o footer para o final da página */
+}
+
+/* Seções */
+section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #E0E0E0; /* Borda suave */
+    border-radius: 5px;
+}
+
+section h2 {
+    color: #001F3F; /* Título em azul marinho */
+    border-bottom: 2px solid #001F3F; /* Linha de destaque */
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* Estilo para o campo de input */
+.input-container {
+    margin-bottom: 15px;
+}
+
+.input-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.input-container input[type="number"] {
+    width: calc(100% - 22px); /* Ajuste para padding e borda */
+    padding: 10px;
+    border: 1px solid #CCC;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+/* Botões de Categoria */
+.categorias-container {
+    margin-bottom: 20px;
+}
+
+.categorias-container p {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.btn-categoria {
+    background-color: #004080; /* Azul um pouco mais claro para os botões */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.3s ease; /* Efeito de transição */
+}
+
+.btn-categoria:hover {
+    background-color: #0056B3; /* Cor um pouco mais escura no hover */
+}
+
+/* Botão Adicionar Gasto */
+#adicionarBtn {
+    background-color: #28A745; /* Verde para o botão de adicionar */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    width: 100%;
+}
+
+#adicionarBtn:hover {
+    background-color: #218838; /* Verde mais escuro no hover */
+}
+
+/* Resumo de Gastos */
+#listaGastos {
+    margin-top: 20px;
+    border-top: 1px dashed #DDD; /* Linha divisória */
+    padding-top: 15px;
+}
+
+.gasto-item {
+    background-color: #F0F8FF; /* Azul bem clarinho para cada item de gasto */
+    border: 1px solid #B0D0FF;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+}
+
+.gasto-item .valor {
+    font-weight: bold;
+    color: #001F3F;
+}
+
+.totais-categorias {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #EEE;
+}
+
+.totais-categorias h3 {
+    color: #001F3F;
+    margin-bottom: 15px;
+}
+
+.totais-categorias p {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.totais-categorias span {
+    font-weight: bold;
+    color: #004080;
+}
+
+.total-geral {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #001F3F;
+    text-align: right;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 2px solid #001F3F; /* Borda para o total geral */
+}
+/* Estilo para categoria selecionada */
+.btn-categoria.selecionado {
+    background-color: #007BFF; /* Um azul mais vibrante para a seleção */
+    border: 2px solid #0056B3;
+    font-weight: bold;
+}
+
+/* Estilo para o botão de remover */
+.btn-remover {
+    background-color: #DC3545; /* Vermelho para remover */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.3s ease;
+}
+
+.btn-remover:hover {
+    background-color: #C82333; /* Vermelho mais escuro no hover */
+}
