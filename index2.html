@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha de Gastos da Família</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Controle de Gastos Diários</h1>
+    </header>
+
+    <main>
+        <section class="adicionar-gasto">
+            <h2>Adicionar Novo Gasto</h2>
+            <div class="input-container">
+                <label for="valorGasto">Valor (R$):</label>
+                <input type="number" id="valorGasto" min="0.01" step="0.01" placeholder="Ex: 50.00">
+            </div>
+            
+            <div class="categorias-container">
+                <p>Selecione a Categoria:</p>
+                <button class="btn-categoria" data-categoria="gasolina">Gasolina</button>
+                <button class="btn-categoria" data-categoria="mercado">Mercado</button>
+                <button class="btn-categoria" data-categoria="servicosDomesticos">Serviços Domésticos</button>
+                <button class="btn-categoria" data-categoria="cuidadosPessoais">Cuidados Pessoais</button>
+                <button class="btn-categoria" data-categoria="passeios">Passeios</button>
+                <button class="btn-categoria" data-categoria="outros">Outros</button>
+            </div>
+            <button id="adicionarBtn">Adicionar Gasto</button>
+        </section>
+
+        <button id="exportarExcelBtn">Exportar para Excel</button>
+
+        <section class="resumo-gastos">
+            <h2>Resumo Diário de Gastos</h2>
+            <div id="listaGastos">
+                </div>
+            <div class="totais-categorias">
+                <h3>Totais por Categoria:</h3>
+                <p>Gasolina: R$ <span id="totalGasolina">0.00</span></p>
+                <p>Mercado: R$ <span id="totalMercado">0.00</span></p>
+                <p>Serviços Domésticos: R$ <span id="totalServicosDomesticos">0.00</span></p>
+                <p>Cuidados Pessoais: R$ <span id="totalCuidadosPessoais">0.00</span></p>
+                <p>Passeios: R$ <span id="totalPasseios">0.00</span></p>
+                <p>Outros: R$ <span id="totalOutros">0.00</span></p>
+            </div>
+            <p class="total-geral">Total Geral: R$ <span id="totalGeral">0.00</span></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Controle de Gastos. Todos os direitos reservados.</p>
+    </footer>
+
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
