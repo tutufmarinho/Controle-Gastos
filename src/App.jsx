@@ -31,6 +31,7 @@ const firebaseConfig = {
   measurementId: "G-NMNM4Y68X5"
 };
 
+
 // Identificador único para a sua aplicação dentro do Firestore.
 const APP_IDENTIFIER = "controle-gastos-app";
 
@@ -751,7 +752,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                             Editar
                                         </button>
                                         <button
-                                            onClick={() => handleRemoveCategory(index)} // Alterado para usar o modal customizado
+                                            onClick={() => handleRemoveCategory(index)}
                                             className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
                                         >
                                             Remover
@@ -847,7 +848,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                     {exp.categoria}: R$ {exp.valor.toFixed(2).replace('.', ',')} ({new Date(exp.timestamp).toLocaleDateString()})
                                 </span>
                                 <button
-                                    onClick={() => handleRemoveIndividualExpense(exp.id)} // Alterado para usar o modal customizado
+                                    onClick={() => handleRemoveIndividualExpense(exp.id)}
                                     className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200"
                                 >
                                     Remover
