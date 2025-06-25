@@ -5,7 +5,9 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    signInWithCustomToken, // Importar para usar o token do Canvas
+    signInAnonymously // Para login anônimo
 } from 'firebase/auth';
 import {
     getFirestore,
@@ -20,16 +22,10 @@ import {
 // Carrega a biblioteca SheetJS para exportação de Excel
 const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
-// Sua configuração do Firebase (copiada diretamente do seu console Firebase)
-const firebaseConfig = {
-  apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
-  authDomain: "controle-gastos-d1cec.firebaseapp.com",
-  projectId: "controle-gastos-d1cec",
-  storageBucket: "controle-gastos-d1cec.firebasestorage.app",
-  messagingSenderId: "1098535347473",
-  appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
-  measurementId: "G-NMNM4Y68X5"
-};
+// Variáveis globais do ambiente Canvas (assumindo que estão disponíveis)
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 
 // Identificador único para a sua aplicação dentro do Firestore.
@@ -42,7 +38,7 @@ const AuthContext = createContext(null);
 function ConfirmModal({ message, onConfirm, onCancel }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center rounded-lg">
                 <p className="text-lg font-semibold mb-6">{message}</p>
                 <div className="flex justify-center gap-4">
                     <button
@@ -67,51 +63,75 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null);
     const [dbInstance, setDbInstance] = useState(null);
     const [authInstance, setAuthInstance] = useState(null);
     const [userId, setUserId] = useState(null); // ID do usuário logado
 
     useEffect(() => {
         console.log("App useEffect [Início]: Iniciando inicialização do Firebase...");
-        if (firebaseConfig.apiKey && firebaseConfig.projectId && !firebaseAppInstance) {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
 
-            setFirebaseAppInstance(app);
+        if (!firebaseConfig) {
+            console.error("App useEffect [Erro Config]: Configuração do Firebase faltando.");
+            setLoading(false);
+            return;
+        }
+
+        let app;
+        let auth;
+        let db;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
             setAuthInstance(auth);
             setDbInstance(db);
             console.log("App useEffect [Inicializado]: Firebase app, auth, db instanciados.");
-
-            console.log("App useEffect [Listener]: Configurando listener de autenticação.");
-            const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-                console.log("App useEffect [onAuthStateChanged]: Callback disparado. currentUser:", currentUser);
-                if (currentUser) {
-                    setUser(currentUser);
-                    setUserId(currentUser.uid);
-                    console.log("App useEffect [onAuthStateChanged]: Usuário autenticado definido no estado:", currentUser.uid);
-                } else {
-                    setUser(null);
-                    setUserId(null);
-                    console.log("App useEffect [onAuthStateChanged]: Nenhum usuário autenticado, estado 'user' limpo.");
-                }
-                setLoading(false);
-                console.log("App useEffect [onAuthStateChanged]: Loading set to false.");
-            });
-
-            return () => {
-                console.log("App useEffect [Cleanup]: Desinscrevendo do listener de autenticação.");
-                unsubscribe();
-            };
-        } else if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-            console.error("App useEffect [Erro Config]: Configuração do Firebase incompleta. Forneça sua Chave API e ID do Projeto.");
+        } catch (error) {
+            console.error("App useEffect [Erro Init]: Erro ao inicializar Firebase:", error);
             setLoading(false);
-        } else {
-             console.log("App useEffect [Ignorado]: Firebase já inicializado ou sem configuração completa.");
-             setLoading(false);
+            return;
         }
-    }, [firebaseAppInstance]);
+
+        console.log("App useEffect [Listener]: Configurando listener de autenticação.");
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            console.log("App useEffect [onAuthStateChanged]: Callback disparado. currentUser:", currentUser);
+            if (currentUser) {
+                setUser(currentUser);
+                setUserId(currentUser.uid);
+                console.log("App useEffect [onAuthStateChanged]: Usuário autenticado definido no estado:", currentUser.uid);
+            } else {
+                setUser(null);
+                setUserId(null);
+                console.log("App useEffect [onAuthStateChanged]: Nenhum usuário autenticado, estado 'user' limpo.");
+
+                // Tenta login com token Canvas ou anônimo apenas se não houver usuário logado
+                if (auth) { // Garante que auth esteja disponível
+                    try {
+                        if (initialAuthToken) {
+                            console.log("App useEffect [onAuthStateChanged]: Tentando login com token inicial do Canvas...");
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            console.log("App useEffect [onAuthStateChanged]: Login com token inicial bem-sucedido.");
+                        } else {
+                            console.log("App useEffect [onAuthStateChanged]: Token inicial não disponível, tentando login anônimo...");
+                            await signInAnonymously(auth);
+                            console.log("App useEffect [onAuthStateChanged]: Login anônimo bem-sucedido.");
+                        }
+                    } catch (error) {
+                        console.error("App useEffect [onAuthStateChanged]: Erro no login (token/anônimo):", error);
+                    }
+                }
+            }
+            setLoading(false);
+            console.log("App useEffect [onAuthStateChanged]: Loading set to false.");
+        });
+
+        return () => {
+            console.log("App useEffect [Cleanup]: Desinscrevendo do listener de autenticação.");
+            unsubscribe();
+        };
+    }, []); // Array de dependências vazio para rodar apenas uma vez
 
     // Logs de depuração no render do componente App
     console.log("App Render [Início]: Componente App renderizando.");
@@ -123,11 +143,11 @@ function App() {
         return <div className="loading-screen text-center p-8 text-xl">Carregando aplicativo...</div>;
     }
 
-    if (!firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey === "YOUR_API_KEY") {
+    if (!firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey === "YOUR_API_KEY") {
         console.log("App Render: Mostrando erro de configuração do Firebase.");
         return (
             <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-800 p-8">
-                <div className="bg-white p-6 rounded-lg shadow-md text-center">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center rounded-lg">
                     <h2 className="text-2xl font-bold mb-4">Erro de Configuração do Firebase!</h2>
                     <p className="mb-4">Por favor, edite o arquivo `src/App.jsx` e insira suas credenciais do Firebase no objeto `firebaseConfig`.</p>
                     <p>Você pode encontrá-las no <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Console do Firebase</a>.</p>
@@ -137,7 +157,7 @@ function App() {
     }
 
     return (
-        <AuthContext.Provider value={{ user, userId, auth: authInstance, db: dbInstance, firebaseApp: firebaseAppInstance }}>
+        <AuthContext.Provider value={{ user, userId, auth: authInstance, db: dbInstance }}>
             {console.log("App Render: Provedor AuthContext renderizado. user no contexto:", user ? user.email : "null")}
             <div className="min-h-screen flex flex-col bg-gray-100 font-sans antialiased text-gray-800">
                 <header className="bg-blue-900 text-white p-6 text-center shadow-lg rounded-b-lg">
@@ -176,6 +196,13 @@ function AuthScreen() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [error, setError] = useState('');
     const [loadingAuth, setLoadingAuth] = useState(false);
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [messageContent, setMessageContent] = useState('');
+
+    const showModal = (message) => {
+        setMessageContent(message);
+        setShowMessageModal(true);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -187,13 +214,14 @@ function AuthScreen() {
             if (isRegistering) {
                 console.log("AuthScreen: Chamando createUserWithEmailAndPassword...");
                 await createUserWithEmailAndPassword(auth, email, password);
-                console.log("AuthScreen: Registro bem-sucedido. Definindo isRegistering para false.");
+                console.log("AuthScreen: Registro bem-sucedido.");
+                showModal('Registro realizado com sucesso! Faça login.');
                 setIsRegistering(false); // Volta para a tela de login
-                // Após registro, o onAuthStateChanged no App será disparado.
             } else {
                 console.log("AuthScreen: Chamando signInWithEmailAndPassword...");
                 await signInWithEmailAndPassword(auth, email, password);
-                console.log("AuthScreen: Login bem-sucedido. onAuthStateChanged no App será disparado.");
+                console.log("AuthScreen: Login bem-sucedido.");
+                showModal('Login realizado com sucesso!');
             }
         } catch (err) {
             console.error("AuthScreen: Erro de autenticação:", err);
@@ -209,22 +237,29 @@ function AuthScreen() {
             }
             setError(errorMessage);
         } finally {
-            setLoadingAuth(false); // Garante que o loading seja desativado em qualquer caso
+            setLoadingAuth(false);
             console.log("AuthScreen: Submissão concluída, loadingAuth = false.");
         }
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto my-8">
+        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto my-8 rounded-lg">
+            {showMessageModal && (
+                <ConfirmModal
+                    message={messageContent}
+                    onConfirm={() => setShowMessageModal(false)}
+                    onCancel={() => setShowMessageModal(false)} // No caso de um alerta, ambos fecham
+                />
+            )}
             <h2 className="text-2xl font-semibold mb-6 text-center text-blue-800">{isRegistering ? 'Criar Conta' : 'Fazer Login'}</h2>
-            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
+            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 rounded-md" role="alert">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">E-mail:</label>
                     <input
                         type="email"
                         id="email"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -235,7 +270,7 @@ function AuthScreen() {
                     <input
                         type="password"
                         id="password"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -243,7 +278,7 @@ function AuthScreen() {
                 </div>
                 <button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-200"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 rounded-md"
                     disabled={loadingAuth}
                 >
                     {loadingAuth ? 'Carregando...' : (isRegistering ? 'Registrar' : 'Entrar')}
@@ -271,6 +306,13 @@ function Dashboard() {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [confirmMessage, setConfirmMessage] = useState('');
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [messageContent, setMessageContent] = useState('');
+
+    const showModal = (message) => {
+        setMessageContent(message);
+        setShowMessageModal(true);
+    };
 
     useEffect(() => {
         console.log("Dashboard useEffect [Início]: userId", userId, "db", db ? "presente" : "ausente");
@@ -280,7 +322,7 @@ function Dashboard() {
             return;
         }
 
-        const sheetsCollectionRef = collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`);
+        const sheetsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`);
         console.log("Dashboard useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
 
         const unsubscribe = onSnapshot(sheetsCollectionRef, (snapshot) => {
@@ -305,7 +347,7 @@ function Dashboard() {
 
     const createNewSpreadsheet = async () => {
         if (!newSheetName.trim()) {
-            alert('Por favor, digite um nome para a nova planilha.');
+            showModal('Por favor, digite um nome para a nova planilha.');
             return;
         }
         if (!db || !userId) {
@@ -314,7 +356,7 @@ function Dashboard() {
         }
 
         try {
-            const newDocRef = doc(collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`));
+            const newDocRef = doc(collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`));
             await setDoc(newDocRef, {
                 name: newSheetName.trim(),
                 ownerId: userId,
@@ -324,7 +366,7 @@ function Dashboard() {
                 expenses: []
             });
             setNewSheetName('');
-            alert('Planilha criada com sucesso!');
+            showModal('Planilha criada com sucesso!');
         } catch (err) {
             console.error("Erro ao criar planilha:", err);
             setError("Erro ao criar a nova planilha.");
@@ -340,11 +382,11 @@ function Dashboard() {
                 return;
             }
             try {
-                await deleteDoc(doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheetId}`));
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheetId}`));
                 if (selectedSheetId === sheetId) {
                     setSelectedSheetId(null);
                 }
-                alert('Planilha excluída com sucesso!');
+                showModal('Planilha excluída com sucesso!');
             } catch (err) {
                 console.error("Erro ao excluir planilha:", err);
                 setError("Erro ao excluir a planilha.");
@@ -371,7 +413,7 @@ function Dashboard() {
     }
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md my-8">
+        <div className="bg-white p-6 rounded-lg shadow-md my-8 rounded-lg">
             {showConfirmModal && (
                 <ConfirmModal
                     message={confirmMessage}
@@ -379,22 +421,29 @@ function Dashboard() {
                     onCancel={() => setShowConfirmModal(false)}
                 />
             )}
+            {showMessageModal && (
+                <ConfirmModal // Reutilizando ConfirmModal como MessageModal
+                    message={messageContent}
+                    onConfirm={() => setShowMessageModal(false)}
+                    onCancel={() => setShowMessageModal(false)}
+                />
+            )}
             <h2 className="text-2xl font-semibold mb-6 text-blue-800">Minhas Planilhas</h2>
-            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
+            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 rounded-md" role="alert">{error}</div>}
 
-            <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
+            <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50 rounded-lg">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Criar Nova Planilha</h3>
                 <div className="flex flex-col sm:flex-row gap-2">
                     <input
                         type="text"
                         placeholder="Nome da nova planilha"
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                         value={newSheetName}
                         onChange={(e) => setNewSheetName(e.target.value)}
                     />
                     <button
                         onClick={createNewSpreadsheet}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200"
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200 rounded-md"
                     >
                         Criar
                     </button>
@@ -409,18 +458,18 @@ function Dashboard() {
             ) : (
                 <ul className="space-y-3">
                     {spreadsheets.map(sheet => (
-                        <li key={sheet.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-md shadow-sm">
+                        <li key={sheet.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-md shadow-sm rounded-md">
                             <span className="font-semibold text-lg text-blue-700 mb-2 sm:mb-0 sm:mr-4">{sheet.name}</span>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setSelectedSheetId(sheet.id)}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition duration-200"
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition duration-200 rounded-md"
                                 >
                                     Abrir
                                 </button>
                                 <button
                                     onClick={() => handleDeleteSpreadsheet(sheet.id)}
-                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200"
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200 rounded-md"
                                 >
                                     Excluir
                                 </button>
@@ -447,9 +496,15 @@ function SpreadsheetEditor({ sheet, onBack }) {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [confirmMessage, setConfirmMessage] = useState('');
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [messageContent, setMessageContent] = useState('');
 
+    const showModal = (message) => {
+        setMessageContent(message);
+        setShowMessageModal(true);
+    };
 
-    // Real-time listener for the current spreadsheet in Firestore
+    // Listener de tempo real para a planilha atual no Firestore
     useEffect(() => {
         console.log("SpreadsheetEditor useEffect [Início]: userId", userId, "db", db ? "presente" : "ausente", "sheet.id", sheet.id);
         if (!db || !userId || !sheet.id) {
@@ -457,7 +512,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             return;
         }
 
-        const sheetDocRef = doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`);
+        const sheetDocRef = doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`);
         console.log("SpreadsheetEditor useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetDocRef.path);
 
         const unsubscribe = onSnapshot(sheetDocRef, (docSnap) => {
@@ -488,7 +543,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
         setLoading(true);
         try {
-            await updateDoc(doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`), {
+            await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`), {
                 config: { categories: newConfig },
                 expenses: newExpenses
             });
@@ -502,13 +557,14 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
     };
 
+    // --- Funções de Configuração de Categorias ---
     const addCategory = async () => {
         if (!newCategoryName.trim() || isNaN(parseFloat(newCategoryBudget))) {
-            alert('Por favor, preencha o nome da categoria e o orçamento.');
+            showModal('Por favor, preencha o nome da categoria e o orçamento.');
             return;
         }
         if (categories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
-            alert('Esta categoria já existe.');
+            showModal('Esta categoria já existe.');
             return;
         }
         const updatedCategories = [...categories, { name: newCategoryName.trim(), budget: parseFloat(newCategoryBudget) }];
@@ -519,15 +575,15 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     const editCategory = async (index) => {
         const currentCategory = categories[index];
-        const newName = window.prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name);
+        const newName = prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name);
         if (newName !== null && newName.trim() !== '') {
-            const newBudget = parseFloat(window.prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2)));
+            const newBudget = parseFloat(prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2)));
             if (!isNaN(newBudget) && newBudget >= 0) {
                 const updatedCategories = [...categories];
                 updatedCategories[index] = { name: newName.trim(), budget: newBudget };
                 await updateSheetInFirestore(updatedCategories, expenses);
             } else {
-                alert('Orçamento inválido.');
+                showModal('Orçamento inválido.');
             }
         }
     };
@@ -542,11 +598,12 @@ function SpreadsheetEditor({ sheet, onBack }) {
         setShowConfirmModal(true);
     };
 
+    // --- Funções de Adicionar/Remover Gastos Individuais ---
     const addExpense = async () => {
         const val = parseFloat(valorGasto);
         if (val > 0 && categoriaSelecionada && categories.some(cat => cat.name === categoriaSelecionada)) {
             const newExpense = {
-                id: Date.now(),
+                id: Date.now(), // ID único para cada gasto
                 categoria: categoriaSelecionada,
                 valor: val,
                 timestamp: new Date().toISOString()
@@ -556,7 +613,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             setValorGasto('');
             setCategoriaSelecionada('');
         } else {
-            alert('Por favor, insira um valor válido e selecione uma categoria existente.');
+            showModal('Por favor, insira um valor válido e selecione uma categoria existente.');
         }
     };
 
@@ -570,6 +627,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         setShowConfirmModal(true);
     };
 
+    // --- Cálculos para a Tabela de Resumo e Totais Gerais ---
     const getCategoryTotals = () => {
         const totals = {};
         categories.forEach(cat => {
@@ -584,6 +642,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             if (totals[exp.categoria]) {
                 totals[exp.categoria].spent += exp.valor;
             } else {
+                // Caso um gasto seja de uma categoria que foi removida, ele não entra no resumo por categoria
                 console.warn(`Gasto em categoria '${exp.categoria}' não encontrada nas categorias configuradas.`);
             }
         });
@@ -600,16 +659,20 @@ function SpreadsheetEditor({ sheet, onBack }) {
     const totalJaGastos = expenses.reduce((sum, exp) => sum + exp.valor, 0);
     const totalSaldo = totalPrevisaoGastos - totalJaGastos;
 
+    // --- Função de Exportação para Excel ---
     const exportToExcel = () => {
         if (!XLSX) {
-            alert("A biblioteca de exportação Excel não foi carregada. Tente novamente mais tarde ou verifique a conexão.");
+            showModal("A biblioteca de exportação Excel não foi carregada. Tente novamente mais tarde ou verifique a conexão.");
             return;
         }
         const dadosParaPlanilha = [];
 
+        // Linha 1: Título "CONTROLE DE GASTOS"
         dadosParaPlanilha.push(["", "CONTROLE DE GASTOS", "", ""]);
+        // Linha 2: Cabeçalhos
         dadosParaPlanilha.push(["ITEM", "VALOR", "SALDO", "JÁ GASTEI"]);
 
+        // Dados das categorias
         categories.forEach(cat => {
             const totals = categoryTotals[cat.name] || { budget: cat.budget, spent: 0, balance: 0 };
             dadosParaPlanilha.push([
@@ -620,19 +683,23 @@ function SpreadsheetEditor({ sheet, onBack }) {
             ]);
         });
 
+        // Linha vazia para espaçamento
         dadosParaPlanilha.push([]);
 
+        // Totais Finais
         dadosParaPlanilha.push(["PREVISÃO DE GASTOS", "", totalPrevisaoGastos, ""]);
         dadosParaPlanilha.push(["JÁ GASTOS", totalJaGastos, "", ""]);
         dadosParaPlanilha.push(["SALDO", totalSaldo, "", ""]);
 
         const ws = XLSX.utils.aoa_to_sheet(dadosParaPlanilha);
 
+        // --- Configurações de Mesclagem de Células ---
         ws['!merges'] = [
-            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } },
-            { s: { r: dadosParaPlanilha.length - 3, c: 0 }, e: { r: dadosParaPlanilha.length - 3, c: 1 } }
+            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }, // Título "CONTROLE DE GASTOS"
+            { s: { r: dadosParaPlanilha.length - 3, c: 0 }, e: { r: dadosParaPlanilha.length - 3, c: 1 } } // PREVISAO DE GASTOS
         ];
 
+        // --- Estilos de Células (Negrito, Cores, Formato de Moeda) ---
         if (ws['B1']) {
             ws['B1'].s = {
                 font: { bold: true, sz: 14 },
@@ -651,7 +718,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         const saldoCellStyle = { fill: { fgColor: { rgb: "FFD9EDC8" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
         const jaGasteiCellStyle = { fill: { fgColor: { rgb: "FFFEEFB3" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
 
-        for (let i = 2; i < categories.length + 2; i++) {
+        for (let i = 2; i < categories.length + 2; i++) { // Iterar sobre as linhas de dados das categorias
             const valorCell = XLSX.utils.encode_cell({ r: i, c: 1 });
             const saldoCell = XLSX.utils.encode_cell({ r: i, c: 2 });
             const jaGasteiCell = XLSX.utils.encode_cell({ r: i, c: 3 });
@@ -685,7 +752,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md my-8">
+        <div className="bg-white p-6 rounded-lg shadow-md my-8 rounded-lg">
             {showConfirmModal && (
                 <ConfirmModal
                     message={confirmMessage}
@@ -693,25 +760,32 @@ function SpreadsheetEditor({ sheet, onBack }) {
                     onCancel={() => setShowConfirmModal(false)}
                 />
             )}
+            {showMessageModal && (
+                <ConfirmModal // Reutilizando ConfirmModal como MessageModal
+                    message={messageContent}
+                    onConfirm={() => setShowMessageModal(false)}
+                    onCancel={() => setShowMessageModal(false)}
+                />
+            )}
             <button
                 onClick={onBack}
-                className="mb-4 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200"
+                className="mb-4 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200 rounded-md"
             >
                 ← Voltar para Minhas Planilhas
             </button>
 
             <h2 className="text-2xl font-semibold mb-6 text-blue-800">{sheet.name}</h2>
-            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
+            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 rounded-md" role="alert">{error}</div>}
             {loading && <p className="text-center text-blue-500 mb-4">Salvando...</p>}
 
             {/* Seção de Configuração de Categorias para esta planilha */}
-            <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
+            <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50 rounded-lg">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Configurar Categorias e Orçamentos</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
                     <input
                         type="text"
                         placeholder="Nome da Categoria"
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md"
+                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md rounded-md"
                         value={newCategoryName}
                         onChange={(e) => setNewCategoryName(e.target.value)}
                     />
@@ -719,13 +793,13 @@ function SpreadsheetEditor({ sheet, onBack }) {
                         type="number"
                         step="0.01"
                         placeholder="Orçamento (R$)"
-                        className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md rounded-md"
                         value={newCategoryBudget}
                         onChange={(e) => setNewCategoryBudget(e.target.value)}
                     />
                     <button
                         onClick={addCategory}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200"
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200 rounded-md"
                     >
                         Adicionar
                     </button>
@@ -747,13 +821,13 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                     <td className="border px-4 py-2">
                                         <button
                                             onClick={() => editCategory(index)}
-                                            className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs mr-2"
+                                            className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs mr-2 rounded-md"
                                         >
                                             Editar
                                         </button>
                                         <button
                                             onClick={() => handleRemoveCategory(index)}
-                                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
+                                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs rounded-md"
                                         >
                                             Remover
                                         </button>
@@ -766,19 +840,19 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Seção de Adicionar Gasto */}
-            <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50">
+            <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50 rounded-lg">
                 <h3 className="text-xl font-medium mb-4 text-purple-700">Adicionar Novo Gasto</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
                     <input
                         type="number"
                         step="0.01"
                         placeholder="Valor (R$)"
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md"
+                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md rounded-md"
                         value={valorGasto}
                         onChange={(e) => setValorGasto(e.target.value)}
                     />
                     <select
-                        className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md rounded-md"
                         value={categoriaSelecionada}
                         onChange={(e) => setCategoriaSelecionada(e.target.value)}
                     >
@@ -789,7 +863,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                     </select>
                     <button
                         onClick={addExpense}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition duration-200"
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition duration-200 rounded-md"
                     >
                         Adicionar
                     </button>
@@ -797,7 +871,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Tabela de Resumo (agora acima da lista de gastos individuais) */}
-            <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm">
+            <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm rounded-lg">
                 <h2 className="text-xl font-medium mb-4 text-green-800 text-center">CONTROLE DE GASTOS</h2>
                 <table className="w-full border-collapse mb-4">
                     <thead>
@@ -822,7 +896,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                         })}
                     </tbody>
                 </table>
-                <div className="p-3 bg-gray-100 rounded-md">
+                <div className="p-3 bg-gray-100 rounded-md rounded-md">
                     <p className="flex justify-between text-lg font-semibold mb-1">
                         PREVISÃO DE GASTOS: <span className="text-blue-700">R$ {totalPrevisaoGastos.toFixed(2).replace('.', ',')}</span>
                     </p>
@@ -836,20 +910,20 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Lista de Gastos Individuais */}
-            <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm">
+            <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm rounded-lg">
                 <h3 className="text-xl font-medium mb-4 text-orange-700">Detalhamento dos Gastos:</h3>
                 {expenses.length === 0 ? (
                     <p className="text-center text-gray-500">Nenhum gasto registrado ainda para esta planilha.</p>
                 ) : (
                     <ul className="space-y-2">
                         {expenses.map(exp => (
-                            <li key={exp.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm border border-gray-100">
+                            <li key={exp.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm border border-gray-100 rounded-md">
                                 <span className="text-gray-700">
                                     {exp.categoria}: R$ {exp.valor.toFixed(2).replace('.', ',')} ({new Date(exp.timestamp).toLocaleDateString()})
                                 </span>
                                 <button
                                     onClick={() => handleRemoveIndividualExpense(exp.id)}
-                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200"
+                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200 rounded-md"
                                 >
                                     Remover
                                 </button>
@@ -861,7 +935,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
             <button
                 onClick={exportToExcel}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 text-lg"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 rounded-lg"
             >
                 Exportar para Excel
             </button>
