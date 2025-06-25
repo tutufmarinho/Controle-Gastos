@@ -20,17 +20,16 @@ import {
 // Carrega a biblioteca SheetJS para exportação de Excel
 const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
-// Sua configuração do Firebase (copiada diretamente do seu console Firebase)
+// Sua configuração do Firebase (COPIADA EXATAMENTE DOS SEUS PRINTS DO CONSOLE FIREBASE)
 const firebaseConfig = {
-  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cjRLS4",
+  apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
   authDomain: "controle-gastos-d1cec.firebaseapp.com",
   projectId: "controle-gastos-d1cec",
-  storageBucket: "controle-gastos-d1cec.appspot.com",
+  storageBucket: "controle-gastos-d1cec.firebasestorage.app",
   messagingSenderId: "1098535347473",
   appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
   measurementId: "G-NMNM4Y68X5"
 };
-
 // Identificador único para a sua aplicação dentro do Firestore.
 const APP_IDENTIFIER = "controle-gastos-app";
 
@@ -859,3 +858,4 @@ function SpreadsheetEditor({ sheet, onBack }) {
 }
 
 export default App;
+
