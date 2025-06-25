@@ -20,7 +20,7 @@ import {
 // Carrega a biblioteca SheetJS para exportação de Excel
 const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
-// Sua configuração do Firebase (COPIADA EXATAMENTE DOS SEUS PRINTS DO CONSOLE FIREBASE)
+// Sua configuração do Firebase (copiada diretamente do seu console Firebase)
 const firebaseConfig = {
   apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
   authDomain: "controle-gastos-d1cec.firebaseapp.com",
@@ -30,6 +30,7 @@ const firebaseConfig = {
   appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
   measurementId: "G-NMNM4Y68X5"
 };
+
 // Identificador único para a sua aplicação dentro do Firestore.
 const APP_IDENTIFIER = "controle-gastos-app";
 
@@ -71,7 +72,7 @@ function App() {
     const [userId, setUserId] = useState(null); // ID do usuário logado
 
     useEffect(() => {
-        console.log("App useEffect: Iniciando inicialização do Firebase...");
+        console.log("App useEffect [Início]: Iniciando inicialização do Firebase...");
         if (firebaseConfig.apiKey && firebaseConfig.projectId && !firebaseAppInstance) {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
@@ -80,45 +81,49 @@ function App() {
             setFirebaseAppInstance(app);
             setAuthInstance(auth);
             setDbInstance(db);
+            console.log("App useEffect [Inicializado]: Firebase app, auth, db instanciados.");
 
-            console.log("App useEffect: Firebase inicializado. Configurando listener de autenticação.");
+            console.log("App useEffect [Listener]: Configurando listener de autenticação.");
             const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                console.log("App useEffect [onAuthStateChanged]: Callback disparado. currentUser:", currentUser);
                 if (currentUser) {
                     setUser(currentUser);
                     setUserId(currentUser.uid);
-                    console.log("App useEffect: Usuário autenticado detectado:", currentUser.uid);
+                    console.log("App useEffect [onAuthStateChanged]: Usuário autenticado definido no estado:", currentUser.uid);
                 } else {
                     setUser(null);
                     setUserId(null);
-                    console.log("App useEffect: Nenhum usuário autenticado detectado.");
+                    console.log("App useEffect [onAuthStateChanged]: Nenhum usuário autenticado, estado 'user' limpo.");
                 }
                 setLoading(false);
-                console.log("App useEffect: Loading set to false.");
+                console.log("App useEffect [onAuthStateChanged]: Loading set to false.");
             });
 
             return () => {
-                console.log("App useEffect: Desinscrevendo do listener de autenticação.");
+                console.log("App useEffect [Cleanup]: Desinscrevendo do listener de autenticação.");
                 unsubscribe();
             };
         } else if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-            console.error("App useEffect: Configuração do Firebase incompleta. Forneça sua Chave API e ID do Projeto.");
+            console.error("App useEffect [Erro Config]: Configuração do Firebase incompleta. Forneça sua Chave API e ID do Projeto.");
             setLoading(false);
         } else {
-             console.log("App useEffect: Firebase já inicializado ou sem configuração completa.");
+             console.log("App useEffect [Ignorado]: Firebase já inicializado ou sem configuração completa.");
              setLoading(false);
         }
     }, [firebaseAppInstance]);
 
-    // Adicionado para depuração: ver o estado 'user' em cada renderização
-    console.log("App Render: Estado atual do usuário:", user);
-    console.log("App Render: Estado atual de carregamento:", loading);
+    // Logs de depuração no render do componente App
+    console.log("App Render [Início]: Componente App renderizando.");
+    console.log("App Render [Estado]: user:", user ? user.email : "null", "loading:", loading);
 
 
     if (loading) {
+        console.log("App Render: Mostrando tela de carregamento.");
         return <div className="loading-screen text-center p-8 text-xl">Carregando aplicativo...</div>;
     }
 
     if (!firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey === "YOUR_API_KEY") {
+        console.log("App Render: Mostrando erro de configuração do Firebase.");
         return (
             <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-800 p-8">
                 <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -132,6 +137,7 @@ function App() {
 
     return (
         <AuthContext.Provider value={{ user, userId, auth: authInstance, db: dbInstance, firebaseApp: firebaseAppInstance }}>
+            {console.log("App Render: Provedor AuthContext renderizado. user no contexto:", user ? user.email : "null")}
             <div className="min-h-screen flex flex-col bg-gray-100 font-sans antialiased text-gray-800">
                 <header className="bg-blue-900 text-white p-6 text-center shadow-lg rounded-b-lg">
                     <h1 className="text-3xl font-bold">Controle de Gastos Personalizado</h1>
@@ -148,7 +154,7 @@ function App() {
                     )}
                 </header>
                 <main className="flex-grow p-4 md:p-8 max-w-4xl mx-auto w-full">
-                    {console.log("App: Renderizando. User é:", user ? "autenticado" : "NÃO autenticado")}
+                    {console.log("App Render: Condicional de renderização. user é:", user ? "autenticado" : "NÃO autenticado")}
                     {!user ? <AuthScreen /> : <Dashboard />}
                 </main>
                 <footer className="bg-blue-900 text-white p-4 text-center text-sm shadow-inner rounded-t-lg mt-auto">
@@ -178,12 +184,15 @@ function AuthScreen() {
 
         try {
             if (isRegistering) {
+                console.log("AuthScreen: Chamando createUserWithEmailAndPassword...");
                 await createUserWithEmailAndPassword(auth, email, password);
-                console.log("AuthScreen: Registro bem-sucedido.");
+                console.log("AuthScreen: Registro bem-sucedido. Definindo isRegistering para false.");
                 setIsRegistering(false); // Volta para a tela de login
+                // Após registro, o onAuthStateChanged no App será disparado.
             } else {
+                console.log("AuthScreen: Chamando signInWithEmailAndPassword...");
                 await signInWithEmailAndPassword(auth, email, password);
-                console.log("AuthScreen: Login bem-sucedido.");
+                console.log("AuthScreen: Login bem-sucedido. onAuthStateChanged no App será disparado.");
             }
         } catch (err) {
             console.error("AuthScreen: Erro de autenticação:", err);
@@ -200,7 +209,7 @@ function AuthScreen() {
             setError(errorMessage);
         } finally {
             setLoadingAuth(false); // Garante que o loading seja desativado em qualquer caso
-            console.log("AuthScreen: Submissão concluída, loadingAuth = false");
+            console.log("AuthScreen: Submissão concluída, loadingAuth = false.");
         }
     };
 
@@ -263,15 +272,15 @@ function Dashboard() {
     const [confirmMessage, setConfirmMessage] = useState('');
 
     useEffect(() => {
-        console.log("Dashboard useEffect: userId", userId, "db", db ? "present" : "absent");
+        console.log("Dashboard useEffect [Início]: userId", userId, "db", db ? "presente" : "ausente");
         if (!db || !userId) {
             setLoadingSheets(false);
-            console.log("Dashboard useEffect: DB ou userId não disponíveis, pulando busca de planilhas.");
+            console.log("Dashboard useEffect [Condição]: DB ou userId não disponíveis, pulando busca de planilhas.");
             return;
         }
 
         const sheetsCollectionRef = collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`);
-        console.log("Dashboard useEffect: Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
+        console.log("Dashboard useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
 
         const unsubscribe = onSnapshot(sheetsCollectionRef, (snapshot) => {
             const fetchedSheets = snapshot.docs.map(doc => ({
@@ -280,15 +289,15 @@ function Dashboard() {
             }));
             setSpreadsheets(fetchedSheets);
             setLoadingSheets(false);
-            console.log("Dashboard useEffect: Planilhas carregadas:", fetchedSheets);
+            console.log("Dashboard useEffect [onSnapshot]: Planilhas carregadas:", fetchedSheets);
         }, (err) => {
-            console.error("Dashboard useEffect: Erro ao buscar planilhas:", err);
+            console.error("Dashboard useEffect [Erro]: Erro ao buscar planilhas:", err);
             setError("Erro ao carregar suas planilhas.");
             setLoadingSheets(false);
         });
 
         return () => {
-            console.log("Dashboard useEffect: Desinscrevendo do listener de planilhas.");
+            console.log("Dashboard useEffect [Cleanup]: Desinscrevendo do listener de planilhas.");
             unsubscribe();
         };
     }, [db, userId]);
@@ -441,30 +450,32 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     // Real-time listener for the current spreadsheet in Firestore
     useEffect(() => {
-        console.log("SpreadsheetEditor useEffect: userId", userId, "db", db ? "present" : "absent", "sheet.id", sheet.id);
+        console.log("SpreadsheetEditor useEffect [Início]: userId", userId, "db", db ? "presente" : "ausente", "sheet.id", sheet.id);
         if (!db || !userId || !sheet.id) {
-            console.log("SpreadsheetEditor useEffect: DB, userId ou sheet.id não disponíveis, pulando listener.");
+            console.log("SpreadsheetEditor useEffect [Condição]: DB, userId ou sheet.id não disponíveis, pulando listener.");
             return;
         }
 
         const sheetDocRef = doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`);
+        console.log("SpreadsheetEditor useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetDocRef.path);
+
         const unsubscribe = onSnapshot(sheetDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setCategories(data.config.categories || []);
                 setExpenses(data.expenses || []);
-                console.log("SpreadsheetEditor useEffect: Dados da planilha atualizados em tempo real:", data);
+                console.log("SpreadsheetEditor useEffect [onSnapshot]: Dados da planilha atualizados em tempo real:", data);
             } else {
-                console.log("SpreadsheetEditor useEffect: Planilha não encontrada. Voltando ao dashboard.");
+                console.log("SpreadsheetEditor useEffect [Planilha não encontrada]: Planilha não encontrada. Voltando ao dashboard.");
                 onBack();
             }
         }, (err) => {
-            console.error("SpreadsheetEditor useEffect: Erro no listener de planilha:", err);
+            console.error("SpreadsheetEditor useEffect [Erro]: Erro no listener de planilha:", err);
             setError("Erro ao carregar dados da planilha em tempo real.");
         });
 
         return () => {
-            console.log("SpreadsheetEditor useEffect: Desinscrevendo do listener de planilha.");
+            console.log("SpreadsheetEditor useEffect [Cleanup]: Desinscrevendo do listener de planilha.");
             unsubscribe();
         };
     }, [db, userId, sheet.id, onBack]);
@@ -692,7 +703,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
             {loading && <p className="text-center text-blue-500 mb-4">Salvando...</p>}
 
-            {/* Section for Category Configuration for this spreadsheet */}
+            {/* Seção de Configuração de Categorias para esta planilha */}
             <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Configurar Categorias e Orçamentos</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -740,7 +751,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                             Editar
                                         </button>
                                         <button
-                                            onClick={() => handleRemoveCategory(index)} // Changed to use custom modal
+                                            onClick={() => handleRemoveCategory(index)} // Alterado para usar o modal customizado
                                             className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
                                         >
                                             Remover
@@ -753,7 +764,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 )}
             </section>
 
-            {/* Section to Add Expense */}
+            {/* Seção de Adicionar Gasto */}
             <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50">
                 <h3 className="text-xl font-medium mb-4 text-purple-700">Adicionar Novo Gasto</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -784,7 +795,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 </div>
             </section>
 
-            {/* Summary Table (now above the individual expenses list) */}
+            {/* Tabela de Resumo (agora acima da lista de gastos individuais) */}
             <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm">
                 <h2 className="text-xl font-medium mb-4 text-green-800 text-center">CONTROLE DE GASTOS</h2>
                 <table className="w-full border-collapse mb-4">
@@ -823,7 +834,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 </div>
             </section>
 
-            {/* List of Individual Expenses */}
+            {/* Lista de Gastos Individuais */}
             <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm">
                 <h3 className="text-xl font-medium mb-4 text-orange-700">Detalhamento dos Gastos:</h3>
                 {expenses.length === 0 ? (
@@ -836,7 +847,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                     {exp.categoria}: R$ {exp.valor.toFixed(2).replace('.', ',')} ({new Date(exp.timestamp).toLocaleDateString()})
                                 </span>
                                 <button
-                                    onClick={() => handleRemoveIndividualExpense(exp.id)} // Changed to use custom modal
+                                    onClick={() => handleRemoveIndividualExpense(exp.id)} // Alterado para usar o modal customizado
                                     className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200"
                                 >
                                     Remover
@@ -858,4 +869,3 @@ function SpreadsheetEditor({ sheet, onBack }) {
 }
 
 export default App;
-
