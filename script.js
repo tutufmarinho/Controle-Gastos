@@ -12,12 +12,11 @@ document.addEventListener('DOMContentLoaded', function() {
         outros: document.getElementById('totalOutros')
     };
     const totalGeral = document.getElementById('totalGeral');
-    const exportarExcelBtn = document.getElementById('exportarExcelBtn'); // Novo: Botão de exportar
+    const exportarExcelBtn = document.getElementById('exportarExcelBtn');
 
     let categoriaSelecionada = '';
     let gastos = [];
 
-    // Carregar Gastos do LocalStorage
     function carregarGastos() {
         const gastosSalvos = localStorage.getItem('gastosDiarios');
         if (gastosSalvos) {
@@ -25,22 +24,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Salvar Gastos no LocalStorage
     function salvarGastos() {
         localStorage.setItem('gastosDiarios', JSON.stringify(gastos));
     }
 
-    // Carrega os gastos assim que a página é carregada
     carregarGastos();
-    // Atualiza a exibição com os gastos carregados
     atualizarListaGastos();
     atualizarTotais();
 
     botoesCategoria.forEach(botao => {
         botao.addEventListener('click', function() {
-            // Remove a classe 'selecionado' de todos os botões
             botoesCategoria.forEach(btn => btn.classList.remove('selecionado'));
-            // Adiciona a classe 'selecionado' apenas ao botão clicado
             this.classList.add('selecionado');
             categoriaSelecionada = this.dataset.categoria;
         });
@@ -54,13 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
             salvarGastos();
             atualizarListaGastos();
             atualizarTotais();
-            
-            // Limpa o input e a seleção de categoria
+
             valorGastoInput.value = '';
             categoriaSelecionada = '';
             botoesCategoria.forEach(btn => btn.classList.remove('selecionado'));
         } else {
-            alert('Por favor, insira um valor válido e selecione uma categoria.');
+            let mensagemErro = '';
+            if (!(valorGasto > 0)) { // valorGastoInput.value pode ser string vazia ou não número, resultando em NaN ou 0 para parseFloat.
+                mensagemErro += 'Por favor, insira um valor monetário válido.\n';
+            }
+            if (!categoriaSelecionada) {
+                mensagemErro += 'Por favor, selecione uma categoria.\n';
+            }
+            alert(mensagemErro.trim());
         }
     });
 
@@ -106,24 +106,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (totais.hasOwnProperty(gasto.categoria)) {
                 totais[gasto.categoria] += gasto.valor;
             } else {
-                totais['outros'] += gasto.valor; 
+                totais['outros'] += gasto.valor;
             }
             total += gasto.valor;
         });
 
-        for (let categoria in totaisCategorias) {
-            if (totais.hasOwnProperty(categoria)) {
-                 totaisCategorias[categoria].textContent = totais[categoria].toFixed(2);
+        for (let categoriaKey in totaisCategorias) {
+            // MODIFICAÇÃO AQUI:
+            // Garante que totais[categoriaKey] seja um número antes de chamar toFixed()
+            // e define como '0.00' caso contrário ou se a categoria não tiver gastos.
+            if (totais.hasOwnProperty(categoriaKey) && typeof totais[categoriaKey] === 'number') {
+                 totaisCategorias[categoriaKey].textContent = totais[categoriaKey].toFixed(2);
             } else {
-                 totaisCategorias[categoria].textContent = '0.00';
+                 totaisCategorias[categoriaKey].textContent = '0.00';
             }
         }
         totalGeral.textContent = total.toFixed(2);
     }
 
-    // --- Nova Função: Exportar para Excel ---
     exportarExcelBtn.addEventListener('click', function() {
-        // Coleta os dados dos totais por categoria
         const dadosParaExportar = [
             ["Categoria", "Total (R$)"],
             ["Gasolina", parseFloat(totaisCategorias.gasolina.textContent)],
@@ -135,19 +136,13 @@ document.addEventListener('DOMContentLoaded', function() {
             ["Total Geral", parseFloat(totalGeral.textContent)]
         ];
 
-        // Cria uma nova planilha
         const ws = XLSX.utils.aoa_to_sheet(dadosParaExportar);
 
-        // --- Adicionando formatação ---
-
-        // Definir larguras de coluna
         ws['!cols'] = [
-            { wch: 20 }, // Largura para a coluna "Categoria"
-            { wch: 15 }  // Largura para a coluna "Total (R$)"
+            { wch: 20 },
+            { wch: 15 }
         ];
 
-        // Estilizar cabeçalhos (primeira linha)
-        // A1 e B1
         if (ws['A1']) {
             ws['A1'].s = { font: { bold: true } };
         }
@@ -155,10 +150,9 @@ document.addEventListener('DOMContentLoaded', function() {
             ws['B1'].s = { font: { bold: true } };
         }
 
-        // Estilizar "Total Geral" (última linha)
         const lastRowIndex = dadosParaExportar.length;
-        const totalGeralCellA = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 0 }); // Célula da categoria "Total Geral"
-        const totalGeralCellB = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 1 }); // Célula do valor "Total Geral"
+        const totalGeralCellA = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 0 });
+        const totalGeralCellB = XLSX.utils.encode_cell({ r: lastRowIndex - 1, c: 1 });
 
         if (ws[totalGeralCellA]) {
             ws[totalGeralCellA].s = { font: { bold: true } };
@@ -169,8 +163,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Resumo de Gastos");
-
-        // Gera e baixa o arquivo Excel
         XLSX.writeFile(wb, "resumo_gastos_familia.xlsx");
     });
 });

@@ -64,11 +64,12 @@ section h2 {
 }
 
 .input-container input[type="number"] {
-    width: calc(100% - 22px); /* Ajuste para padding e borda */
+    width: 100%; /* Alterado de calc(100% - 22px) */
     padding: 10px;
     border: 1px solid #CCC;
     border-radius: 4px;
     font-size: 1rem;
+    box-sizing: border-box; /* Adicionado para incluir padding e borda na largura total */
 }
 
 /* Botões de Categoria */
