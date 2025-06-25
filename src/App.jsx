@@ -22,10 +22,10 @@ const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
 // Sua configuração do Firebase (copiada diretamente do seu console Firebase)
 const firebaseConfig = {
-  apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
+  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cjRLS4",
   authDomain: "controle-gastos-d1cec.firebaseapp.com",
   projectId: "controle-gastos-d1cec",
-  storageBucket: "controle-gastos-d1cec.firebasestorage.app",
+  storageBucket: "controle-gastos-d1cec.appspot.com",
   messagingSenderId: "1098535347473",
   appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
   measurementId: "G-NMNM4Y68X5"
@@ -72,7 +72,7 @@ function App() {
     const [userId, setUserId] = useState(null); // ID do usuário logado
 
     useEffect(() => {
-        // Initialize Firebase ONLY if the keys are provided (not the placeholders)
+        console.log("App useEffect: Iniciando inicialização do Firebase...");
         if (firebaseConfig.apiKey && firebaseConfig.projectId && !firebaseAppInstance) {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
@@ -82,29 +82,38 @@ function App() {
             setAuthInstance(auth);
             setDbInstance(db);
 
-            // Listener for authentication state
+            console.log("App useEffect: Firebase inicializado. Configurando listener de autenticação.");
             const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
                 if (currentUser) {
                     setUser(currentUser);
                     setUserId(currentUser.uid);
-                    console.log("Usuário autenticado:", currentUser.uid);
+                    console.log("App useEffect: Usuário autenticado detectado:", currentUser.uid);
                 } else {
                     setUser(null);
                     setUserId(null);
-                    console.log("Nenhum usuário autenticado.");
+                    console.log("App useEffect: Nenhum usuário autenticado detectado.");
                 }
                 setLoading(false);
+                console.log("App useEffect: Loading set to false.");
             });
 
-            // Cleanup the listener
-            return () => unsubscribe();
+            return () => {
+                console.log("App useEffect: Desinscrevendo do listener de autenticação.");
+                unsubscribe();
+            };
         } else if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-            console.error("Firebase config is incomplete. Please provide your API Key and Project ID.");
+            console.error("App useEffect: Configuração do Firebase incompleta. Forneça sua Chave API e ID do Projeto.");
             setLoading(false);
         } else {
-             setLoading(false); // Already initialized or without complete config
+             console.log("App useEffect: Firebase já inicializado ou sem configuração completa.");
+             setLoading(false);
         }
-    }, [firebaseAppInstance]); // Runs once on component mount, or when firebaseAppInstance changes (which shouldn't happen)
+    }, [firebaseAppInstance]);
+
+    // Adicionado para depuração: ver o estado 'user' em cada renderização
+    console.log("App Render: Estado atual do usuário:", user);
+    console.log("App Render: Estado atual de carregamento:", loading);
+
 
     if (loading) {
         return <div className="loading-screen text-center p-8 text-xl">Carregando aplicativo...</div>;
@@ -140,6 +149,7 @@ function App() {
                     )}
                 </header>
                 <main className="flex-grow p-4 md:p-8 max-w-4xl mx-auto w-full">
+                    {console.log("App: Renderizando. User é:", user ? "autenticado" : "NÃO autenticado")}
                     {!user ? <AuthScreen /> : <Dashboard />}
                 </main>
                 <footer className="bg-blue-900 text-white p-4 text-center text-sm shadow-inner rounded-t-lg mt-auto">
@@ -165,18 +175,19 @@ function AuthScreen() {
         e.preventDefault();
         setError('');
         setLoadingAuth(true);
+        console.log("AuthScreen: Tentando submeter, loadingAuth = true");
 
         try {
             if (isRegistering) {
                 await createUserWithEmailAndPassword(auth, email, password);
-                // alert('Registro realizado com sucesso! Faça login.'); // Removido
+                console.log("AuthScreen: Registro bem-sucedido.");
                 setIsRegistering(false); // Volta para a tela de login
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
-                // alert('Login realizado com sucesso!'); // Removido
+                console.log("AuthScreen: Login bem-sucedido.");
             }
         } catch (err) {
-            console.error("Erro de autenticação:", err);
+            console.error("AuthScreen: Erro de autenticação:", err);
             let errorMessage = "Ocorreu um erro. Tente novamente.";
             if (err.code === 'auth/email-already-in-use') {
                 errorMessage = "Este e-mail já está em uso.";
@@ -190,6 +201,7 @@ function AuthScreen() {
             setError(errorMessage);
         } finally {
             setLoadingAuth(false); // Garante que o loading seja desativado em qualquer caso
+            console.log("AuthScreen: Submissão concluída, loadingAuth = false");
         }
     };
 
@@ -252,13 +264,15 @@ function Dashboard() {
     const [confirmMessage, setConfirmMessage] = useState('');
 
     useEffect(() => {
+        console.log("Dashboard useEffect: userId", userId, "db", db ? "present" : "absent");
         if (!db || !userId) {
-            setLoadingSheets(false); // If DB or userId are not available, don't load.
+            setLoadingSheets(false);
+            console.log("Dashboard useEffect: DB ou userId não disponíveis, pulando busca de planilhas.");
             return;
         }
 
         const sheetsCollectionRef = collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`);
-        console.log("Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
+        console.log("Dashboard useEffect: Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
 
         const unsubscribe = onSnapshot(sheetsCollectionRef, (snapshot) => {
             const fetchedSheets = snapshot.docs.map(doc => ({
@@ -267,14 +281,17 @@ function Dashboard() {
             }));
             setSpreadsheets(fetchedSheets);
             setLoadingSheets(false);
-            console.log("Planilhas carregadas:", fetchedSheets);
+            console.log("Dashboard useEffect: Planilhas carregadas:", fetchedSheets);
         }, (err) => {
-            console.error("Erro ao buscar planilhas:", err);
+            console.error("Dashboard useEffect: Erro ao buscar planilhas:", err);
             setError("Erro ao carregar suas planilhas.");
             setLoadingSheets(false);
         });
 
-        return () => unsubscribe(); // Cleanup the listener
+        return () => {
+            console.log("Dashboard useEffect: Desinscrevendo do listener de planilhas.");
+            unsubscribe();
+        };
     }, [db, userId]);
 
     const createNewSpreadsheet = async () => {
@@ -293,9 +310,9 @@ function Dashboard() {
                 name: newSheetName.trim(),
                 ownerId: userId,
                 config: {
-                    categories: [] // Start empty, user will configure
+                    categories: []
                 },
-                expenses: [] // No expenses initially
+                expenses: []
             });
             setNewSheetName('');
             alert('Planilha criada com sucesso!');
@@ -339,9 +356,8 @@ function Dashboard() {
                 />
             );
         } else {
-            // If the selected sheet is not found (e.g., deleted by another device)
             setSelectedSheetId(null);
-            return null; // or an error component
+            return null;
         }
     }
 
@@ -357,7 +373,6 @@ function Dashboard() {
             <h2 className="text-2xl font-semibold mb-6 text-blue-800">Minhas Planilhas</h2>
             {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
 
-            {/* Create New Spreadsheet */}
             <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Criar Nova Planilha</h3>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -377,7 +392,6 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* List of Existing Spreadsheets */}
             <h3 className="text-xl font-medium mb-4 text-blue-700">Minhas Planilhas Existentes</h3>
             {loadingSheets ? (
                 <p className="text-center text-gray-500">Carregando planilhas...</p>
@@ -428,7 +442,11 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     // Real-time listener for the current spreadsheet in Firestore
     useEffect(() => {
-        if (!db || !userId || !sheet.id) return;
+        console.log("SpreadsheetEditor useEffect: userId", userId, "db", db ? "present" : "absent", "sheet.id", sheet.id);
+        if (!db || !userId || !sheet.id) {
+            console.log("SpreadsheetEditor useEffect: DB, userId ou sheet.id não disponíveis, pulando listener.");
+            return;
+        }
 
         const sheetDocRef = doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`);
         const unsubscribe = onSnapshot(sheetDocRef, (docSnap) => {
@@ -436,17 +454,20 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 const data = docSnap.data();
                 setCategories(data.config.categories || []);
                 setExpenses(data.expenses || []);
-                console.log("Dados da planilha atualizados em tempo real:", data);
+                console.log("SpreadsheetEditor useEffect: Dados da planilha atualizados em tempo real:", data);
             } else {
-                console.log("Planilha não encontrada. Voltando ao dashboard.");
-                onBack(); // Go back to dashboard if the sheet was deleted
+                console.log("SpreadsheetEditor useEffect: Planilha não encontrada. Voltando ao dashboard.");
+                onBack();
             }
         }, (err) => {
-            console.error("Erro no listener de planilha:", err);
+            console.error("SpreadsheetEditor useEffect: Erro no listener de planilha:", err);
             setError("Erro ao carregar dados da planilha em tempo real.");
         });
 
-        return () => unsubscribe();
+        return () => {
+            console.log("SpreadsheetEditor useEffect: Desinscrevendo do listener de planilha.");
+            unsubscribe();
+        };
     }, [db, userId, sheet.id, onBack]);
 
     const updateSheetInFirestore = async (newConfig, newExpenses) => {
@@ -461,16 +482,15 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 expenses: newExpenses
             });
             setError('');
-            console.log("Planilha atualizada no Firestore.");
+            console.log("SpreadsheetEditor: Planilha atualizada no Firestore.");
         } catch (err) {
-            console.error("Erro ao atualizar planilha no Firestore:", err);
+            console.error("SpreadsheetEditor: Erro ao atualizar planilha no Firestore:", err);
             setError("Erro ao salvar alterações.");
         } finally {
             setLoading(false);
         }
     };
 
-    // --- Category Configuration Functions ---
     const addCategory = async () => {
         if (!newCategoryName.trim() || isNaN(parseFloat(newCategoryBudget))) {
             alert('Por favor, preencha o nome da categoria e o orçamento.');
@@ -488,9 +508,9 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     const editCategory = async (index) => {
         const currentCategory = categories[index];
-        const newName = window.prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name); // Using window.prompt temporarily
+        const newName = window.prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name);
         if (newName !== null && newName.trim() !== '') {
-            const newBudget = parseFloat(window.prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2))); // Using window.prompt temporarily
+            const newBudget = parseFloat(window.prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2)));
             if (!isNaN(newBudget) && newBudget >= 0) {
                 const updatedCategories = [...categories];
                 updatedCategories[index] = { name: newName.trim(), budget: newBudget };
@@ -511,12 +531,11 @@ function SpreadsheetEditor({ sheet, onBack }) {
         setShowConfirmModal(true);
     };
 
-    // --- Add/Remove Individual Expenses Functions ---
     const addExpense = async () => {
         const val = parseFloat(valorGasto);
         if (val > 0 && categoriaSelecionada && categories.some(cat => cat.name === categoriaSelecionada)) {
             const newExpense = {
-                id: Date.now(), // Unique ID for each expense
+                id: Date.now(),
                 categoria: categoriaSelecionada,
                 valor: val,
                 timestamp: new Date().toISOString()
@@ -540,7 +559,6 @@ function SpreadsheetEditor({ sheet, onBack }) {
         setShowConfirmModal(true);
     };
 
-    // --- Calculations for Summary Table and General Totals ---
     const getCategoryTotals = () => {
         const totals = {};
         categories.forEach(cat => {
@@ -555,7 +573,6 @@ function SpreadsheetEditor({ sheet, onBack }) {
             if (totals[exp.categoria]) {
                 totals[exp.categoria].spent += exp.valor;
             } else {
-                // If an expense is from a category that was removed, it won't be included in the category summary
                 console.warn(`Gasto em categoria '${exp.categoria}' não encontrada nas categorias configuradas.`);
             }
         });
@@ -572,7 +589,6 @@ function SpreadsheetEditor({ sheet, onBack }) {
     const totalJaGastos = expenses.reduce((sum, exp) => sum + exp.valor, 0);
     const totalSaldo = totalPrevisaoGastos - totalJaGastos;
 
-    // --- Excel Export Function ---
     const exportToExcel = () => {
         if (!XLSX) {
             alert("A biblioteca de exportação Excel não foi carregada. Tente novamente mais tarde ou verifique a conexão.");
@@ -580,12 +596,9 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
         const dadosParaPlanilha = [];
 
-        // Line 1: Title "CONTROLE DE GASTOS"
         dadosParaPlanilha.push(["", "CONTROLE DE GASTOS", "", ""]);
-        // Line 2: Headers
         dadosParaPlanilha.push(["ITEM", "VALOR", "SALDO", "JÁ GASTEI"]);
 
-        // Category data
         categories.forEach(cat => {
             const totals = categoryTotals[cat.name] || { budget: cat.budget, spent: 0, balance: 0 };
             dadosParaPlanilha.push([
@@ -596,23 +609,19 @@ function SpreadsheetEditor({ sheet, onBack }) {
             ]);
         });
 
-        // Empty line for spacing
         dadosParaPlanilha.push([]);
 
-        // Final Totals
         dadosParaPlanilha.push(["PREVISÃO DE GASTOS", "", totalPrevisaoGastos, ""]);
         dadosParaPlanilha.push(["JÁ GASTOS", totalJaGastos, "", ""]);
         dadosParaPlanilha.push(["SALDO", totalSaldo, "", ""]);
 
         const ws = XLSX.utils.aoa_to_sheet(dadosParaPlanilha);
 
-        // --- Cell Merging Configurations ---
         ws['!merges'] = [
-            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }, // Title "CONTROLE DE GASTOS"
-            { s: { r: dadosParaPlanilha.length - 3, c: 0 }, e: { r: dadosParaPlanilha.length - 3, c: 1 } } // PREVISAO DE GASTOS
+            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } },
+            { s: { r: dadosParaPlanilha.length - 3, c: 0 }, e: { r: dadosParaPlanilha.length - 3, c: 1 } }
         ];
 
-        // --- Cell Styles (Bold, Colors, Currency Format) ---
         if (ws['B1']) {
             ws['B1'].s = {
                 font: { bold: true, sz: 14 },
@@ -631,7 +640,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         const saldoCellStyle = { fill: { fgColor: { rgb: "FFD9EDC8" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
         const jaGasteiCellStyle = { fill: { fgColor: { rgb: "FFFEEFB3" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
 
-        for (let i = 2; i < categories.length + 2; i++) { // Iterate over category data rows
+        for (let i = 2; i < categories.length + 2; i++) {
             const valorCell = XLSX.utils.encode_cell({ r: i, c: 1 });
             const saldoCell = XLSX.utils.encode_cell({ r: i, c: 2 });
             const jaGasteiCell = XLSX.utils.encode_cell({ r: i, c: 3 });
