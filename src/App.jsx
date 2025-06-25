@@ -1,122 +1,135 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { initializeApp } from 'firebase/app';
-import { 
-    getAuth, 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged,
-    signInAnonymously // Para login anônimo se __initial_auth_token não for fornecido
+import {
+    getAuth,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
 } from 'firebase/auth';
-import { 
-    getFirestore, 
-    collection, 
-    doc, 
-    setDoc, 
-    getDocs, 
-    updateDoc, 
-    deleteDoc, 
-    onSnapshot, 
-    arrayUnion, 
+import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDocs,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    arrayUnion,
     arrayRemove,
     query,
     where
 } from 'firebase/firestore';
 
 // Carrega a biblioteca SheetJS para exportação de Excel
-const XLSX = window.XLSX;
+const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
-// Variáveis globais do ambiente Canvas (assumindo que estão disponíveis)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Sua configuração do Firebase (copiada diretamente do seu console Firebase)
+const firebaseConfig = {
+  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cjRLS4",
+  authDomain: "controle-gastos-d1cec.firebaseapp.com",
+  projectId: "controle-gastos-d1cec",
+  storageBucket: "controle-gastos-d1cec.appspot.com",
+  messagingSenderId: "1098535347473",
+  appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
+  measurementId: "G-NMNM4Y68X5"
+};
+
+// Identificador único para a sua aplicação dentro do Firestore.
+// Garante que os dados de diferentes aplicações (se você tiver várias) não se misturem.
+const APP_IDENTIFIER = "controle-gastos-app";
 
 // Contexto para autenticação e Firestore (para fácil acesso em componentes aninhados)
 const AuthContext = createContext(null);
+
+// Componente de Modal de Confirmação customizado (substitui 'confirm()')
+function ConfirmModal({ message, onConfirm, onCancel }) {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+                <p className="text-lg font-semibold mb-6">{message}</p>
+                <div className="flex justify-center gap-4">
+                    <button
+                        onClick={onCancel}
+                        className="px-5 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-md transition duration-200"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200"
+                    >
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // Componente Principal do Aplicativo React
 function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [firebaseApp, setFirebaseApp] = useState(null);
-    const [db, setDb] = useState(null);
-    const [auth, setAuth] = useState(null);
+    const [firebaseAppInstance, setFirebaseAppInstance] = useState(null);
+    const [dbInstance, setDbInstance] = useState(null);
+    const [authInstance, setAuthInstance] = useState(null);
     const [userId, setUserId] = useState(null); // ID do usuário logado
 
     useEffect(() => {
-        // Inicializa o Firebase
-        if (!firebaseConfig) {
-            console.error("Firebase config is missing. Please provide it.");
-            setLoading(false);
-            return;
-        }
+        // Initialize Firebase ONLY if the keys are provided (not the placeholders)
+        if (firebaseConfig.apiKey && firebaseConfig.projectId && !firebaseAppInstance) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
 
-        const app = initializeApp(firebaseConfig);
-        const authInstance = getAuth(app);
-        const dbInstance = getFirestore(app);
+            setFirebaseAppInstance(app);
+            setAuthInstance(auth);
+            setDbInstance(db);
 
-        setFirebaseApp(app);
-        setAuth(authInstance);
-        setDb(dbInstance);
-
-        // Listener para o estado de autenticação
-        const unsubscribe = onAuthStateChanged(authInstance, async (currentUser) => {
-            if (currentUser) {
-                setUser(currentUser);
-                setUserId(currentUser.uid);
-                console.log("Usuário autenticado:", currentUser.uid);
-            } else {
-                setUser(null);
-                setUserId(null);
-                console.log("Nenhum usuário autenticado.");
-                // Tenta login anônimo se não houver token inicial (para testar em ambientes sem token)
-                try {
-                    if (!initialAuthToken) {
-                        console.log("Tentando login anônimo...");
-                        await signInAnonymously(authInstance);
-                    }
-                } catch (error) {
-                    console.error("Erro no login anônimo:", error);
+            // Listener for authentication state
+            const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                if (currentUser) {
+                    setUser(currentUser);
+                    setUserId(currentUser.uid);
+                    console.log("Usuário autenticado:", currentUser.uid);
+                } else {
+                    setUser(null);
+                    setUserId(null);
+                    console.log("Nenhum usuário autenticado.");
                 }
-            }
+                setLoading(false);
+            });
+
+            // Cleanup the listener
+            return () => unsubscribe();
+        } else if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+            console.error("Firebase config is incomplete. Please provide your API Key and Project ID.");
             setLoading(false);
-        });
-
-        // Tenta fazer login com o token inicial fornecido pelo ambiente Canvas
-        const signInWithCanvasToken = async () => {
-            if (initialAuthToken && authInstance && !user) {
-                try {
-                    console.log("Tentando login com token inicial do Canvas...");
-                    await signInWithCustomToken(authInstance, initialAuthToken);
-                    console.log("Login com token inicial bem-sucedido.");
-                } catch (error) {
-                    console.error("Erro ao fazer login com token inicial:", error);
-                    // Fallback para login anônimo se o token inicial falhar ou não existir
-                    try {
-                        console.log("Token inicial falhou ou não existe, tentando login anônimo...");
-                        await signInAnonymously(authInstance);
-                    } catch (anonError) {
-                        console.error("Erro no login anônimo:", anonError);
-                    }
-                }
-            }
-        };
-
-        if (authInstance && !user) { // Se authInstance está pronto e nenhum usuário logado
-            signInWithCanvasToken();
+        } else {
+             setLoading(false); // Already initialized or without complete config
         }
-
-
-        // Cleanup do listener
-        return () => unsubscribe();
-    }, [firebaseConfig, initialAuthToken, user]); // Dependências para re-executar o useEffect
+    }, [firebaseAppInstance]); // Runs once on component mount, or when firebaseAppInstance changes (which shouldn't happen)
 
     if (loading) {
-        return <div className="loading-screen">Carregando aplicativo...</div>;
+        return <div className="loading-screen text-center p-8 text-xl">Carregando aplicativo...</div>;
+    }
+
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey === "YOUR_API_KEY") {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-800 p-8">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center">
+                    <h2 className="text-2xl font-bold mb-4">Erro de Configuração do Firebase!</h2>
+                    <p className="mb-4">Por favor, edite o arquivo `src/App.jsx` e insira suas credenciais do Firebase no objeto `firebaseConfig`.</p>
+                    <p>Você pode encontrá-las no <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Console do Firebase</a>.</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <AuthContext.Provider value={{ user, userId, auth, db, firebaseApp }}>
+        <AuthContext.Provider value={{ user, userId, auth: authInstance, db: dbInstance, firebaseApp: firebaseAppInstance }}>
             <div className="min-h-screen flex flex-col bg-gray-100 font-sans antialiased text-gray-800">
                 <header className="bg-blue-900 text-white p-6 text-center shadow-lg rounded-b-lg">
                     <h1 className="text-3xl font-bold">Controle de Gastos Personalizado</h1>
@@ -124,7 +137,7 @@ function App() {
                         <div className="text-sm mt-2">
                             Olá, {user.email || "Usuário Anônimo"}! (ID: {userId})
                             <button
-                                onClick={() => signOut(auth)}
+                                onClick={() => signOut(authInstance)}
                                 className="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200"
                             >
                                 Sair
@@ -143,9 +156,9 @@ function App() {
     );
 }
 
-// --- Componentes ---
+// --- Components ---
 
-// Componente de Autenticação (Login/Registro)
+// Authentication Component (Login/Register)
 function AuthScreen() {
     const { auth } = useContext(AuthContext);
     const [email, setEmail] = useState('');
@@ -162,11 +175,11 @@ function AuthScreen() {
         try {
             if (isRegistering) {
                 await createUserWithEmailAndPassword(auth, email, password);
-                alert('Registro realizado com sucesso! Faça login.');
-                setIsRegistering(false); // Volta para a tela de login
+                alert('Registro realizado com sucesso! Faça login.'); // Using alert temporarily, ideally a success modal
+                setIsRegistering(false); // Back to login screen
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
-                alert('Login realizado com sucesso!');
+                alert('Login realizado com sucesso!'); // Using alert temporarily, ideally a success modal
             }
         } catch (err) {
             console.error("Erro de autenticação:", err);
@@ -223,16 +236,16 @@ function AuthScreen() {
             </form>
             <p className="mt-6 text-center text-gray-600">
                 {isRegistering ? (
-                    <>Já tem uma conta? <button onClick={() => setIsRegistering(false)} className="text-blue-600 hover:underline font-medium">Faça login</button></>
+                    <>Já tem uma conta? <button type="button" onClick={() => setIsRegistering(false)} className="text-blue-600 hover:underline font-medium">Faça login</button></>
                 ) : (
-                    <>Não tem uma conta? <button onClick={() => setIsRegistering(true)} className="text-blue-600 hover:underline font-medium">Crie uma aqui</button></>
+                    <>Não tem uma conta? <button type="button" onClick={() => setIsRegistering(true)} className="text-blue-600 hover:underline font-medium">Crie uma aqui</button></>
                 )}
             </p>
         </div>
     );
 }
 
-// Componente Dashboard (após login)
+// Dashboard Component (after login)
 function Dashboard() {
     const { userId, db } = useContext(AuthContext);
     const [spreadsheets, setSpreadsheets] = useState([]);
@@ -240,11 +253,17 @@ function Dashboard() {
     const [newSheetName, setNewSheetName] = useState('');
     const [selectedSheetId, setSelectedSheetId] = useState(null);
     const [error, setError] = useState('');
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [confirmMessage, setConfirmMessage] = useState('');
 
     useEffect(() => {
-        if (!db || !userId) return;
+        if (!db || !userId) {
+            setLoadingSheets(false); // If DB or userId are not available, don't load.
+            return;
+        }
 
-        const sheetsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`);
+        const sheetsCollectionRef = collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`);
         console.log("Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
 
         const unsubscribe = onSnapshot(sheetsCollectionRef, (snapshot) => {
@@ -261,7 +280,7 @@ function Dashboard() {
             setLoadingSheets(false);
         });
 
-        return () => unsubscribe(); // Limpa o listener
+        return () => unsubscribe(); // Cleanup the listener
     }, [db, userId]);
 
     const createNewSpreadsheet = async () => {
@@ -275,14 +294,14 @@ function Dashboard() {
         }
 
         try {
-            const newDocRef = doc(collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`));
+            const newDocRef = doc(collection(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets`));
             await setDoc(newDocRef, {
                 name: newSheetName.trim(),
                 ownerId: userId,
                 config: {
-                    categories: [] // Começa vazia, usuário vai configurar
+                    categories: [] // Start empty, user will configure
                 },
-                expenses: [] // Sem gastos inicialmente
+                expenses: [] // No expenses initially
             });
             setNewSheetName('');
             alert('Planilha criada com sucesso!');
@@ -292,23 +311,28 @@ function Dashboard() {
         }
     };
 
-    const deleteSpreadsheet = async (sheetId) => {
-        if (confirm('Tem certeza que deseja excluir esta planilha? Todos os dados serão perdidos.')) {
+    const handleDeleteSpreadsheet = (sheetId) => {
+        setConfirmMessage('Tem certeza que deseja excluir esta planilha? Todos os dados serão perdidos.');
+        setConfirmAction(() => async () => {
             if (!db || !userId) {
                 setError("Erro: Usuário não autenticado ou DB não disponível.");
+                setShowConfirmModal(false);
                 return;
             }
             try {
-                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheetId}`));
-                if (selectedSheetId === sheetId) { // Se estiver editando a planilha deletada, volta para o dashboard
+                await deleteDoc(doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheetId}`));
+                if (selectedSheetId === sheetId) {
                     setSelectedSheetId(null);
                 }
                 alert('Planilha excluída com sucesso!');
             } catch (err) {
                 console.error("Erro ao excluir planilha:", err);
                 setError("Erro ao excluir a planilha.");
+            } finally {
+                setShowConfirmModal(false);
             }
-        }
+        });
+        setShowConfirmModal(true);
     };
 
     if (selectedSheetId) {
@@ -321,18 +345,25 @@ function Dashboard() {
                 />
             );
         } else {
-            // Se a planilha selecionada não for encontrada (ex: foi excluída por outro dispositivo)
+            // If the selected sheet is not found (e.g., deleted by another device)
             setSelectedSheetId(null);
-            return null; // ou um componente de erro
+            return null; // or an error component
         }
     }
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md my-8">
+            {showConfirmModal && (
+                <ConfirmModal
+                    message={confirmMessage}
+                    onConfirm={confirmAction}
+                    onCancel={() => setShowConfirmModal(false)}
+                />
+            )}
             <h2 className="text-2xl font-semibold mb-6 text-blue-800">Minhas Planilhas</h2>
             {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
 
-            {/* Criar Nova Planilha */}
+            {/* Create New Spreadsheet */}
             <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Criar Nova Planilha</h3>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -352,7 +383,7 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* Lista de Planilhas Existentes */}
+            {/* List of Existing Spreadsheets */}
             <h3 className="text-xl font-medium mb-4 text-blue-700">Minhas Planilhas Existentes</h3>
             {loadingSheets ? (
                 <p className="text-center text-gray-500">Carregando planilhas...</p>
@@ -371,7 +402,7 @@ function Dashboard() {
                                     Abrir
                                 </button>
                                 <button
-                                    onClick={() => deleteSpreadsheet(sheet.id)}
+                                    onClick={() => handleDeleteSpreadsheet(sheet.id)}
                                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200"
                                 >
                                     Excluir
@@ -385,7 +416,7 @@ function Dashboard() {
     );
 }
 
-// Componente Editor da Planilha (para uma planilha específica)
+// Spreadsheet Editor Component (for a specific spreadsheet)
 function SpreadsheetEditor({ sheet, onBack }) {
     const { db, userId } = useContext(AuthContext);
     const [categories, setCategories] = useState(sheet.config.categories || []);
@@ -396,12 +427,16 @@ function SpreadsheetEditor({ sheet, onBack }) {
     const [categoriaSelecionada, setCategoriaSelecionada] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [confirmMessage, setConfirmMessage] = useState('');
 
-    // Listener de tempo real para a planilha atual no Firestore
+
+    // Real-time listener for the current spreadsheet in Firestore
     useEffect(() => {
         if (!db || !userId || !sheet.id) return;
 
-        const sheetDocRef = doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`);
+        const sheetDocRef = doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`);
         const unsubscribe = onSnapshot(sheetDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -410,7 +445,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 console.log("Dados da planilha atualizados em tempo real:", data);
             } else {
                 console.log("Planilha não encontrada. Voltando ao dashboard.");
-                onBack(); // Volta para o dashboard se a planilha foi deletada
+                onBack(); // Go back to dashboard if the sheet was deleted
             }
         }, (err) => {
             console.error("Erro no listener de planilha:", err);
@@ -427,7 +462,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
         setLoading(true);
         try {
-            await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`), {
+            await updateDoc(doc(db, `apps/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`), {
                 config: { categories: newConfig },
                 expenses: newExpenses
             });
@@ -441,7 +476,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
     };
 
-    // --- Funções de Configuração de Categorias ---
+    // --- Category Configuration Functions ---
     const addCategory = async () => {
         if (!newCategoryName.trim() || isNaN(parseFloat(newCategoryBudget))) {
             alert('Por favor, preencha o nome da categoria e o orçamento.');
@@ -459,9 +494,9 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     const editCategory = async (index) => {
         const currentCategory = categories[index];
-        const newName = prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name);
+        const newName = window.prompt(`Editar nome para "${currentCategory.name}":`, currentCategory.name); // Using window.prompt temporarily
         if (newName !== null && newName.trim() !== '') {
-            const newBudget = parseFloat(prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2)));
+            const newBudget = parseFloat(window.prompt(`Editar orçamento para "${currentCategory.name}" (R$):`, currentCategory.budget.toFixed(2))); // Using window.prompt temporarily
             if (!isNaN(newBudget) && newBudget >= 0) {
                 const updatedCategories = [...categories];
                 updatedCategories[index] = { name: newName.trim(), budget: newBudget };
@@ -472,19 +507,22 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
     };
 
-    const removeCategory = async (index) => {
-        if (confirm('Remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.')) {
+    const handleRemoveCategory = (index) => {
+        setConfirmMessage('Remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.');
+        setConfirmAction(() => async () => {
             const updatedCategories = categories.filter((_, i) => i !== index);
             await updateSheetInFirestore(updatedCategories, expenses);
-        }
+            setShowConfirmModal(false);
+        });
+        setShowConfirmModal(true);
     };
 
-    // --- Funções de Adicionar/Remover Gastos Individuais ---
+    // --- Add/Remove Individual Expenses Functions ---
     const addExpense = async () => {
         const val = parseFloat(valorGasto);
         if (val > 0 && categoriaSelecionada && categories.some(cat => cat.name === categoriaSelecionada)) {
             const newExpense = {
-                id: Date.now(), // ID único para cada gasto
+                id: Date.now(), // Unique ID for each expense
                 categoria: categoriaSelecionada,
                 valor: val,
                 timestamp: new Date().toISOString()
@@ -498,14 +536,17 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
     };
 
-    const removeIndividualExpense = async (expenseId) => {
-        if (confirm('Tem certeza que deseja remover este gasto?')) {
+    const handleRemoveIndividualExpense = (expenseId) => {
+        setConfirmMessage('Tem certeza que deseja remover este gasto?');
+        setConfirmAction(() => async () => {
             const updatedExpenses = expenses.filter(exp => exp.id !== expenseId);
             await updateSheetInFirestore(categories, updatedExpenses);
-        }
+            setShowConfirmModal(false);
+        });
+        setShowConfirmModal(true);
     };
 
-    // --- Cálculos para a Tabela de Resumo e Totais Gerais ---
+    // --- Calculations for Summary Table and General Totals ---
     const getCategoryTotals = () => {
         const totals = {};
         categories.forEach(cat => {
@@ -520,7 +561,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             if (totals[exp.categoria]) {
                 totals[exp.categoria].spent += exp.valor;
             } else {
-                // Caso um gasto seja de uma categoria que foi removida, ele não entra no resumo por categoria
+                // If an expense is from a category that was removed, it won't be included in the category summary
                 console.warn(`Gasto em categoria '${exp.categoria}' não encontrada nas categorias configuradas.`);
             }
         });
@@ -537,16 +578,20 @@ function SpreadsheetEditor({ sheet, onBack }) {
     const totalJaGastos = expenses.reduce((sum, exp) => sum + exp.valor, 0);
     const totalSaldo = totalPrevisaoGastos - totalJaGastos;
 
-    // --- Função de Exportação para Excel ---
+    // --- Excel Export Function ---
     const exportToExcel = () => {
+        if (!XLSX) {
+            alert("A biblioteca de exportação Excel não foi carregada. Tente novamente mais tarde ou verifique a conexão.");
+            return;
+        }
         const dadosParaPlanilha = [];
 
-        // Linha 1: Título "CONTROLE DE GASTOS"
+        // Line 1: Title "CONTROLE DE GASTOS"
         dadosParaPlanilha.push(["", "CONTROLE DE GASTOS", "", ""]);
-        // Linha 2: Cabeçalhos
+        // Line 2: Headers
         dadosParaPlanilha.push(["ITEM", "VALOR", "SALDO", "JÁ GASTEI"]);
 
-        // Dados das categorias
+        // Category data
         categories.forEach(cat => {
             const totals = categoryTotals[cat.name] || { budget: cat.budget, spent: 0, balance: 0 };
             dadosParaPlanilha.push([
@@ -557,23 +602,23 @@ function SpreadsheetEditor({ sheet, onBack }) {
             ]);
         });
 
-        // Linha vazia para espaçamento
+        // Empty line for spacing
         dadosParaPlanilha.push([]);
 
-        // Totais Finais
+        // Final Totals
         dadosParaPlanilha.push(["PREVISÃO DE GASTOS", "", totalPrevisaoGastos, ""]);
         dadosParaPlanilha.push(["JÁ GASTOS", totalJaGastos, "", ""]);
         dadosParaPlanilha.push(["SALDO", totalSaldo, "", ""]);
 
         const ws = XLSX.utils.aoa_to_sheet(dadosParaPlanilha);
 
-        // --- Configurações de Mesclagem de Células ---
+        // --- Cell Merging Configurations ---
         ws['!merges'] = [
-            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }, // Título "CONTROLE DE GASTOS"
+            { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }, // Title "CONTROLE DE GASTOS"
             { s: { r: dadosParaPlanilha.length - 3, c: 0 }, e: { r: dadosParaPlanilha.length - 3, c: 1 } } // PREVISAO DE GASTOS
         ];
 
-        // --- Estilos de Células (Negrito, Cores, Formato de Moeda) ---
+        // --- Cell Styles (Bold, Colors, Currency Format) ---
         if (ws['B1']) {
             ws['B1'].s = {
                 font: { bold: true, sz: 14 },
@@ -592,7 +637,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         const saldoCellStyle = { fill: { fgColor: { rgb: "FFD9EDC8" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
         const jaGasteiCellStyle = { fill: { fgColor: { rgb: "FFFEEFB3" } }, numFmt: 'R$ #,##0.00;[Red]-R$ #,##0.00' };
 
-        for (let i = 2; i < categories.length + 2; i++) { // Iterar sobre as linhas de dados das categorias
+        for (let i = 2; i < categories.length + 2; i++) { // Iterate over category data rows
             const valorCell = XLSX.utils.encode_cell({ r: i, c: 1 });
             const saldoCell = XLSX.utils.encode_cell({ r: i, c: 2 });
             const jaGasteiCell = XLSX.utils.encode_cell({ r: i, c: 3 });
@@ -627,6 +672,13 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md my-8">
+            {showConfirmModal && (
+                <ConfirmModal
+                    message={confirmMessage}
+                    onConfirm={confirmAction}
+                    onCancel={() => setShowConfirmModal(false)}
+                />
+            )}
             <button
                 onClick={onBack}
                 className="mb-4 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200"
@@ -638,7 +690,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
             {loading && <p className="text-center text-blue-500 mb-4">Salvando...</p>}
 
-            {/* Seção de Configuração de Categorias para esta planilha */}
+            {/* Section for Category Configuration for this spreadsheet */}
             <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Configurar Categorias e Orçamentos</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -686,7 +738,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                             Editar
                                         </button>
                                         <button
-                                            onClick={() => removeCategory(index)}
+                                            onClick={() => handleRemoveCategory(index)} // Changed to use custom modal
                                             className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
                                         >
                                             Remover
@@ -699,7 +751,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 )}
             </section>
 
-            {/* Seção de Adicionar Gasto */}
+            {/* Section to Add Expense */}
             <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50">
                 <h3 className="text-xl font-medium mb-4 text-purple-700">Adicionar Novo Gasto</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -730,7 +782,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 </div>
             </section>
 
-            {/* Tabela de Resumo (agora acima da lista de gastos individuais) */}
+            {/* Summary Table (now above the individual expenses list) */}
             <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm">
                 <h2 className="text-xl font-medium mb-4 text-green-800 text-center">CONTROLE DE GASTOS</h2>
                 <table className="w-full border-collapse mb-4">
@@ -769,7 +821,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                 </div>
             </section>
 
-            {/* Lista de Gastos Individuais */}
+            {/* List of Individual Expenses */}
             <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm">
                 <h3 className="text-xl font-medium mb-4 text-orange-700">Detalhamento dos Gastos:</h3>
                 {expenses.length === 0 ? (
@@ -782,7 +834,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                     {exp.categoria}: R$ {exp.valor.toFixed(2).replace('.', ',')} ({new Date(exp.timestamp).toLocaleDateString()})
                                 </span>
                                 <button
-                                    onClick={() => removeIndividualExpense(exp.id)}
+                                    onClick={() => handleRemoveIndividualExpense(exp.id)} // Changed to use custom modal
                                     className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200"
                                 >
                                     Remover
