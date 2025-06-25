@@ -1,0 +1,57 @@
+name: Deploy React App to GitHub Pages # Nome do workflow
+
+on:
+  push:
+    branches:
+      - main # O workflow será executado quando houver um push na branch 'main'
+  workflow_dispatch: # Permite rodar o workflow manualmente pela aba Actions
+
+permissions:
+  contents: read # Permissão para ler o conteúdo do repositório
+  pages: write   # Permissão para escrever nas GitHub Pages
+  id-token: write # Permissão para obter o ID Token para autenticação
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # O job vai rodar em uma máquina virtual Ubuntu
+
+    steps:
+    - name: Checkout repository # Passo 1: Clona o repositório
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js # Passo 2: Configura o ambiente Node.js (necessário para React)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18' # Use uma versão LTS do Node.js (ex: 18, 20)
+
+    - name: Install dependencies # Passo 3: Instala as dependências do seu projeto React
+      run: npm install
+
+    - name: Build React app # Passo 4: Executa o comando de build do React
+      run: npm run build
+      env:
+        # Se você tiver um caminho base diferente para seu site no GitHub Pages, defina-o aqui.
+        # Por exemplo, se seu site for https://usuario.github.io/meu-app/,
+        # BUILD_PATH deveria ser /meu-app/
+        PUBLIC_URL: /Controle-Gastos/ # Substitua '/Controle-Gastos/' pelo nome do seu repositório se for diferente
+
+    - name: Setup Pages # Passo 5: Configura o ambiente para deploy nas Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload artifact # Passo 6: Envia os arquivos "buildados" para o GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './build' # O caminho para a pasta que contém os arquivos construídos (HTML, CSS, JS)
+                       # Em apps React criados com Create React App, essa pasta é 'build'
+
+  deploy:
+    environment:
+      name: github-pages # Define o ambiente de deploy como 'github-pages'
+      url: ${{ steps.deployment.outputs.page_url }} # Pega a URL da página após o deploy
+    runs-on: ubuntu-latest
+    needs: build # Garante que este job só roda depois que o job 'build' for concluído
+
+    steps:
+    - name: Deploy to GitHub Pages # Passo 7: Implanta os arquivos no GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
