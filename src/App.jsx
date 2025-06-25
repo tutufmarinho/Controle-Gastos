@@ -12,14 +12,10 @@ import {
     collection,
     doc,
     setDoc,
-    getDocs,
     updateDoc,
     deleteDoc,
-    onSnapshot,
-    arrayUnion,
-    arrayRemove,
-    query,
-    where
+    onSnapshot
+    // getDocs, arrayUnion, arrayRemove, query, where - Removidos pois não estavam em uso direto neste código
 } from 'firebase/firestore';
 
 // Carrega a biblioteca SheetJS para exportação de Excel
