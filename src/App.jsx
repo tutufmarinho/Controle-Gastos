@@ -23,15 +23,14 @@ const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 // Configuração do Firebase (HARDCODED COM SEUS VALORES, ESSENCIAL PARA GITHUB PAGES)
 // Estes valores são os que você forneceu e são válidos para o seu projeto Firebase.
 const firebaseConfig = {
-  apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
+  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cJRLs4",
   authDomain: "controle-gastos-d1cec.firebaseapp.com",
   projectId: "controle-gastos-d1cec",
-  storageBucket: "controle-gastos-d1cec.firebasestorage.app",
+  storageBucket: "controle-gastos-d1cec.firebasestorage.app", // ATUALIZADO
   messagingSenderId: "1098535347473",
   appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
   measurementId: "G-NMNM4Y68X5"
 };
-
 
 // Identificador único para a sua aplicação dentro do Firestore.
 // Usamos um valor fixo pois __app_id não está disponível no GitHub Pages.
@@ -577,7 +576,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
     };
 
     const handleRemoveCategory = (index) => {
-        setConfirmMessage('Tem certeza que deseja remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.');
+        setConfirmMessage('Remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.');
         setConfirmAction(() => async () => {
             const updatedCategories = categories.filter((_, i) => i !== index);
             await updateSheetInFirestore(updatedCategories, expenses);
@@ -740,40 +739,26 @@ function SpreadsheetEditor({ sheet, onBack }) {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md my-8 rounded-lg">
-            {showConfirmModal && (
-                <ConfirmModal
-                    message={confirmMessage}
-                    onConfirm={confirmAction}
-                    onCancel={() => setShowConfirmModal(false)}
-                />
-            )}
-            {showMessageModal && (
-                <ConfirmModal // Reutilizando ConfirmModal como MessageModal
-                    message={messageContent}
-                    onConfirm={() => setShowMessageModal(false)}
-                    onCancel={() => setShowMessageModal(false)}
-                />
-            )}
+        <div className="bg-white p-6 rounded-lg shadow-md my-8">
             <button
                 onClick={onBack}
-                className="mb-4 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200 rounded-md"
+                className="mb-4 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200"
             >
                 ← Voltar para Minhas Planilhas
             </button>
 
             <h2 className="text-2xl font-semibold mb-6 text-blue-800">{sheet.name}</h2>
-            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 rounded-md" role="alert">{error}</div>}
+            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
             {loading && <p className="text-center text-blue-500 mb-4">Salvando...</p>}
 
             {/* Seção de Configuração de Categorias para esta planilha */}
-            <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50 rounded-lg">
+            <section className="mb-8 p-4 border border-blue-200 rounded-lg bg-blue-50">
                 <h3 className="text-xl font-medium mb-4 text-blue-700">Configurar Categorias e Orçamentos</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
                     <input
                         type="text"
                         placeholder="Nome da Categoria"
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md rounded-md"
+                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md"
                         value={newCategoryName}
                         onChange={(e) => setNewCategoryName(e.target.value)}
                     />
@@ -781,13 +766,13 @@ function SpreadsheetEditor({ sheet, onBack }) {
                         type="number"
                         step="0.01"
                         placeholder="Orçamento (R$)"
-                        className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md rounded-md"
+                        className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md"
                         value={newCategoryBudget}
                         onChange={(e) => setNewCategoryBudget(e.target.value)}
                     />
                     <button
                         onClick={addCategory}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200 rounded-md"
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200"
                     >
                         Adicionar
                     </button>
@@ -809,13 +794,13 @@ function SpreadsheetEditor({ sheet, onBack }) {
                                     <td className="border px-4 py-2">
                                         <button
                                             onClick={() => editCategory(index)}
-                                            className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs mr-2 rounded-md"
+                                            className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs mr-2"
                                         >
                                             Editar
                                         </button>
                                         <button
                                             onClick={() => handleRemoveCategory(index)}
-                                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs rounded-md"
+                                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
                                         >
                                             Remover
                                         </button>
@@ -828,19 +813,19 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Seção de Adicionar Gasto */}
-            <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50 rounded-lg">
+            <section className="mb-8 p-4 border border-purple-200 rounded-lg bg-purple-50">
                 <h3 className="text-xl font-medium mb-4 text-purple-700">Adicionar Novo Gasto</h3>
                 <div className="flex flex-col sm:flex-row gap-2 mb-4">
                     <input
                         type="number"
                         step="0.01"
                         placeholder="Valor (R$)"
-                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md rounded-md"
+                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md"
                         value={valorGasto}
                         onChange={(e) => setValorGasto(e.target.value)}
                     />
                     <select
-                        className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md rounded-md"
+                        className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md"
                         value={categoriaSelecionada}
                         onChange={(e) => setCategoriaSelecionada(e.target.value)}
                     >
@@ -851,7 +836,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                     </select>
                     <button
                         onClick={addExpense}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition duration-200 rounded-md"
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition duration-200"
                     >
                         Adicionar
                     </button>
@@ -859,7 +844,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Tabela de Resumo (agora acima da lista de gastos individuais) */}
-            <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm rounded-lg">
+            <section className="mb-8 p-4 border border-green-200 rounded-lg bg-white shadow-sm">
                 <h2 className="text-xl font-medium mb-4 text-green-800 text-center">CONTROLE DE GASTOS</h2>
                 <table className="w-full border-collapse mb-4">
                     <thead>
@@ -884,7 +869,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
                         })}
                     </tbody>
                 </table>
-                <div className="p-3 bg-gray-100 rounded-md rounded-md">
+                <div className="p-3 bg-gray-100 rounded-md">
                     <p className="flex justify-between text-lg font-semibold mb-1">
                         PREVISÃO DE GASTOS: <span className="text-blue-700">R$ {totalPrevisaoGastos.toFixed(2).replace('.', ',')}</span>
                     </p>
@@ -898,20 +883,20 @@ function SpreadsheetEditor({ sheet, onBack }) {
             </section>
 
             {/* Lista de Gastos Individuais */}
-            <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm rounded-lg">
+            <section className="mb-8 p-4 border border-orange-200 rounded-lg bg-white shadow-sm">
                 <h3 className="text-xl font-medium mb-4 text-orange-700">Detalhamento dos Gastos:</h3>
                 {expenses.length === 0 ? (
                     <p className="text-center text-gray-500">Nenhum gasto registrado ainda para esta planilha.</p>
                 ) : (
                     <ul className="space-y-2">
                         {expenses.map(exp => (
-                            <li key={exp.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm border border-gray-100 rounded-md">
+                            <li key={exp.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm border border-gray-100">
                                 <span className="text-gray-700">
                                     {exp.categoria}: R$ {exp.valor.toFixed(2).replace('.', ',')} ({new Date(exp.timestamp).toLocaleDateString()})
                                 </span>
                                 <button
                                     onClick={() => handleRemoveIndividualExpense(exp.id)}
-                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200 rounded-md"
+                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm transition duration-200"
                                 >
                                     Remover
                                 </button>
@@ -923,7 +908,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
 
             <button
                 onClick={exportToExcel}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 rounded-lg"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 text-lg"
             >
                 Exportar para Excel
             </button>
