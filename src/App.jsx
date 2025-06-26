@@ -23,14 +23,15 @@ const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 // Configuração do Firebase (HARDCODED COM SEUS VALORES, ESSENCIAL PARA GITHUB PAGES)
 // Estes valores são os que você forneceu e são válidos para o seu projeto Firebase.
 const firebaseConfig = {
-  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cjRLS4",
+  apiKey: "AIzaSyDnQO4XWaZtw1C7_Z8yKafELcdM4cJRLs4",
   authDomain: "controle-gastos-d1cec.firebaseapp.com",
   projectId: "controle-gastos-d1cec",
-  storageBucket: "controle-gastos-d1cec.appspot.com",
+  storageBucket: "controle-gastos-d1cec.firebasestorage.app",
   messagingSenderId: "1098535347473",
   appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
   measurementId: "G-NMNM4Y68X5"
 };
+
 
 // Identificador único para a sua aplicação dentro do Firestore.
 // Usamos um valor fixo pois __app_id não está disponível no GitHub Pages.
