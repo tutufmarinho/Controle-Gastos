@@ -5,9 +5,7 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged,
-    signInWithCustomToken, // Importar para usar o token do Canvas
-    signInAnonymously // Para login anônimo
+    onAuthStateChanged
 } from 'firebase/auth';
 import {
     getFirestore,
@@ -22,19 +20,26 @@ import {
 // Carrega a biblioteca SheetJS para exportação de Excel
 const XLSX = typeof window !== 'undefined' ? window.XLSX : null;
 
-// Variáveis globais do ambiente Canvas (assumindo que estão disponíveis)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+// Configuração do Firebase (HARDCODED COM SEUS VALORES, ESSENCIAL PARA GITHUB PAGES)
+// Estes valores são os que você forneceu e são válidos para o seu projeto Firebase.
+const firebaseConfig = {
+  apiKey: "AIzaSyDnQ04XWaZtw1C7_Z8yKafELcdM4cjRLS4",
+  authDomain: "controle-gastos-d1cec.firebaseapp.com",
+  projectId: "controle-gastos-d1cec",
+  storageBucket: "controle-gastos-d1cec.appspot.com",
+  messagingSenderId: "1098535347473",
+  appId: "1:1098535347473:web:644cff53a3f8cb0c4658b0",
+  measurementId: "G-NMNM4Y68X5"
+};
 
 // Identificador único para a sua aplicação dentro do Firestore.
+// Usamos um valor fixo pois __app_id não está disponível no GitHub Pages.
 const APP_IDENTIFIER = "controle-gastos-app";
 
 // Contexto para autenticação e Firestore (para fácil acesso em componentes aninhados)
 const AuthContext = createContext(null);
 
-// Componente de Modal de Confirmação customizado (substitui 'confirm()')
+// Componente de Modal de Confirmação customizado
 function ConfirmModal({ message, onConfirm, onCancel }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -70,12 +75,7 @@ function App() {
     useEffect(() => {
         console.log("App useEffect [Início]: Iniciando inicialização do Firebase...");
 
-        if (!firebaseConfig) {
-            console.error("App useEffect [Erro Config]: Configuração do Firebase faltando.");
-            setLoading(false);
-            return;
-        }
-
+        // Usamos firebaseConfig diretamente aqui, não precisamos verificar por __firebase_config
         let app;
         let auth;
         let db;
@@ -95,7 +95,7 @@ function App() {
         }
 
         console.log("App useEffect [Listener]: Configurando listener de autenticação.");
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             console.log("App useEffect [onAuthStateChanged]: Callback disparado. currentUser:", currentUser);
             if (currentUser) {
                 setUser(currentUser);
@@ -105,23 +105,8 @@ function App() {
                 setUser(null);
                 setUserId(null);
                 console.log("App useEffect [onAuthStateChanged]: Nenhum usuário autenticado, estado 'user' limpo.");
-
-                // Tenta login com token Canvas ou anônimo apenas se não houver usuário logado
-                if (auth) { // Garante que auth esteja disponível
-                    try {
-                        if (initialAuthToken) {
-                            console.log("App useEffect [onAuthStateChanged]: Tentando login com token inicial do Canvas...");
-                            await signInWithCustomToken(auth, initialAuthToken);
-                            console.log("App useEffect [onAuthStateChanged]: Login com token inicial bem-sucedido.");
-                        } else {
-                            console.log("App useEffect [onAuthStateChanged]: Token inicial não disponível, tentando login anônimo...");
-                            await signInAnonymously(auth);
-                            console.log("App useEffect [onAuthStateChanged]: Login anônimo bem-sucedido.");
-                        }
-                    } catch (error) {
-                        console.error("App useEffect [onAuthStateChanged]: Erro no login (token/anônimo):", error);
-                    }
-                }
+                // Para o GitHub Pages, não usaremos signInWithCustomToken ou signInAnonymously aqui.
+                // O fluxo é e-mail/senha.
             }
             setLoading(false);
             console.log("App useEffect [onAuthStateChanged]: Loading set to false.");
@@ -143,14 +128,15 @@ function App() {
         return <div className="loading-screen text-center p-8 text-xl">Carregando aplicativo...</div>;
     }
 
-    if (!firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey === "YOUR_API_KEY") {
-        console.log("App Render: Mostrando erro de configuração do Firebase.");
+    // A verificação de firebaseConfig está mais simples agora
+    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+        console.log("App Render: Mostrando erro de configuração do Firebase (API Key).");
         return (
             <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-800 p-8">
                 <div className="bg-white p-6 rounded-lg shadow-md text-center rounded-lg">
                     <h2 className="text-2xl font-bold mb-4">Erro de Configuração do Firebase!</h2>
-                    <p className="mb-4">Por favor, edite o arquivo `src/App.jsx` e insira suas credenciais do Firebase no objeto `firebaseConfig`.</p>
-                    <p>Você pode encontrá-las no <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Console do Firebase</a>.</p>
+                    <p className="mb-4">Por favor, verifique se a `apiKey` está correta no `src/App.jsx`.</p>
+                    <p>Você pode encontrá-la no <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Console do Firebase</a>.</p>
                 </div>
             </div>
         );
@@ -322,7 +308,8 @@ function Dashboard() {
             return;
         }
 
-        const sheetsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`);
+        // Usamos APP_IDENTIFIER diretamente aqui
+        const sheetsCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/users/${userId}/spreadsheets`);
         console.log("Dashboard useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetsCollectionRef.path);
 
         const unsubscribe = onSnapshot(sheetsCollectionRef, (snapshot) => {
@@ -356,7 +343,7 @@ function Dashboard() {
         }
 
         try {
-            const newDocRef = doc(collection(db, `artifacts/${appId}/users/${userId}/spreadsheets`));
+            const newDocRef = doc(collection(db, `artifacts/${APP_IDENTIFIER}/users/${userId}/spreadsheets`));
             await setDoc(newDocRef, {
                 name: newSheetName.trim(),
                 ownerId: userId,
@@ -382,7 +369,7 @@ function Dashboard() {
                 return;
             }
             try {
-                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheetId}`));
+                await deleteDoc(doc(db, `artifacts/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheetId}`));
                 if (selectedSheetId === sheetId) {
                     setSelectedSheetId(null);
                 }
@@ -512,7 +499,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
             return;
         }
 
-        const sheetDocRef = doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`);
+        const sheetDocRef = doc(db, `artifacts/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`);
         console.log("SpreadsheetEditor useEffect [Busca]: Tentando buscar planilhas do usuário:", sheetDocRef.path);
 
         const unsubscribe = onSnapshot(sheetDocRef, (docSnap) => {
@@ -543,7 +530,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
         }
         setLoading(true);
         try {
-            await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/spreadsheets/${sheet.id}`), {
+            await updateDoc(doc(db, `artifacts/${APP_IDENTIFIER}/users/${userId}/spreadsheets/${sheet.id}`), {
                 config: { categories: newConfig },
                 expenses: newExpenses
             });
@@ -589,7 +576,7 @@ function SpreadsheetEditor({ sheet, onBack }) {
     };
 
     const handleRemoveCategory = (index) => {
-        setConfirmMessage('Remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.');
+        setConfirmMessage('Tem certeza que deseja remover esta categoria? Os gastos associados a ela não serão excluídos, mas não aparecerão no resumo desta categoria.');
         setConfirmAction(() => async () => {
             const updatedCategories = categories.filter((_, i) => i !== index);
             await updateSheetInFirestore(updatedCategories, expenses);
